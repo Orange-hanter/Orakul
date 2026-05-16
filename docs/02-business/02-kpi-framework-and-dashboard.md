@@ -155,7 +155,7 @@
 
 | Принцип | Что значит |
 |---------|------------|
-| **Baseline до запуска** | Каждый клиент проходит 14 дней замера baseline ДО включения рекомендаций. Без baseline KPI нечем сравнивать. |
+| **Baseline до запуска** | Каждый клиент проходит 14 дней замера baseline ДО включения рекомендаций. Без baseline KPI нечем сравнивать. См. [Протокол замера baseline](../04-implementation/07-baseline-measurement-protocol.md) и [шаблон отчёта](../04-implementation/templates/baseline-report.html). |
 | **Один источник правды на метрику** | У каждого KPI один владелец и один источник; перепроверка через Decision Log. |
 | **Никаких vanity metrics** | Метрика должна влиять на решение. «Кол-во рекомендаций показано» — vanity. «ARAR» — actionable. |
 | **Counter-metrics обязательны** | Любой «больше — лучше» KPI имеет защитный counter (например, ARAR ↑ + Override Rate ≥5%). |

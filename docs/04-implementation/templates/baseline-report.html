@@ -1,0 +1,727 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<title>Baseline Report — Orakul</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #fafaf7;
+    --ink: #1a1a1a;
+    --muted: #6b6b6b;
+    --line: #d8d4cc;
+    --accent: #2b4a3e;
+    --warn: #b3541e;
+    --ok: #2e7d4f;
+    --bad: #b71c1c;
+    --card: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    padding: 24px;
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 24px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
+  h3 { font-size: 14px; margin: 16px 0 6px; color: var(--accent); }
+  .hint { color: var(--muted); font-size: 12px; }
+  .container { max-width: 1100px; margin: 0 auto; }
+  .header { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; }
+  .header .meta { text-align: right; font-size: 12px; color: var(--muted); }
+  .toolbar {
+    position: sticky; top: 0; z-index: 10;
+    background: var(--bg); padding: 8px 0; margin-bottom: 8px;
+    display: flex; gap: 8px; flex-wrap: wrap;
+    border-bottom: 1px solid var(--line);
+  }
+  .toolbar button {
+    font: inherit; padding: 6px 12px; border: 1px solid var(--line);
+    background: var(--card); border-radius: 4px; cursor: pointer;
+  }
+  .toolbar button:hover { background: #f0ebe0; }
+  .toolbar .status { margin-left: auto; color: var(--muted); font-size: 12px; align-self: center; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; margin-bottom: 12px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px 18px; }
+  label.field { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); }
+  label.field input, label.field textarea, label.field select {
+    font: inherit; color: var(--ink);
+    padding: 6px 8px; border: 1px solid var(--line); border-radius: 4px;
+    background: #fff;
+  }
+  label.field textarea { min-height: 60px; resize: vertical; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { border: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; }
+  th { background: #f0ebe0; font-weight: 600; }
+  td input, td textarea {
+    width: 100%; border: 0; padding: 2px 4px; font: inherit; background: transparent; color: inherit;
+    resize: vertical;
+  }
+  td input:focus, td textarea:focus { outline: 1px solid var(--accent); background: #fff; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.computed { background: #f6f3ec; color: var(--accent); font-weight: 600; }
+  .badge { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 11px; font-weight: 600; }
+  .badge-ok { background: #d8ecd8; color: var(--ok); }
+  .badge-warn { background: #fde2c4; color: var(--warn); }
+  .badge-bad { background: #f8d7d7; color: var(--bad); }
+  .actions { display: flex; gap: 6px; margin-top: 6px; }
+  .actions button {
+    font: inherit; font-size: 12px; padding: 3px 8px;
+    border: 1px solid var(--line); background: #fff; border-radius: 3px; cursor: pointer;
+  }
+  .signatures { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 12px; }
+  .sig { border: 1px dashed var(--line); padding: 12px; border-radius: 4px; }
+  .sig h4 { margin: 0 0 8px; font-size: 13px; color: var(--accent); }
+  .check { display: flex; align-items: center; gap: 6px; margin: 4px 0; }
+  ul.checklist { list-style: none; padding: 0; margin: 0; }
+  ul.checklist li { padding: 3px 0; }
+  @media print {
+    body { background: #fff; padding: 0; font-size: 12px; }
+    .toolbar { display: none; }
+    .card { break-inside: avoid; box-shadow: none; }
+    table { break-inside: auto; }
+    tr { break-inside: avoid; }
+    h2 { break-after: avoid; }
+    .actions button { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="toolbar">
+    <button onclick="saveSnapshot()">💾 Сохранить</button>
+    <button onclick="loadSnapshot()">↺ Загрузить</button>
+    <button onclick="exportJSON()">⬇ Экспорт JSON</button>
+    <button onclick="importJSON()">⬆ Импорт JSON</button>
+    <button onclick="window.print()">🖨 Печать / PDF</button>
+    <button onclick="clearAll()" style="color:var(--bad)">🗑 Очистить</button>
+    <span class="status" id="status">Черновик</span>
+  </div>
+
+  <div class="header">
+    <div>
+      <h1>BASELINE REPORT</h1>
+      <div class="hint">Снимок исходных KPI до запуска Orakul. Подписанный отчёт замораживается; любое изменение — через Change Request.</div>
+    </div>
+    <div class="meta">
+      <div>Шаблон v1.0 · 2026-05-15</div>
+      <div>См. <a href="../07-baseline-measurement-protocol.md">Протокол замера</a></div>
+    </div>
+  </div>
+
+  <!-- ============== 1. Идентификация ============== -->
+  <h2>1. Идентификация замера</h2>
+  <div class="card">
+    <div class="grid-3">
+      <label class="field">Клиент / сеть
+        <input type="text" data-k="client" placeholder="ООО ..." />
+      </label>
+      <label class="field">ID проекта в PMO
+        <input type="text" data-k="project_id" placeholder="ORK-2026-XXX" />
+      </label>
+      <label class="field">Контур замера
+        <select data-k="scope">
+          <option>Все точки сети</option>
+          <option>Пилот — 1 точка</option>
+          <option>Пилот — несколько точек</option>
+          <option>Категории SKU (см. ниже)</option>
+        </select>
+      </label>
+      <label class="field">Период замера: с
+        <input type="date" data-k="period_from" oninput="recalcAll()" />
+      </label>
+      <label class="field">по
+        <input type="date" data-k="period_to" oninput="recalcAll()" />
+      </label>
+      <label class="field">Длина (дней, авто)
+        <input type="text" data-k="period_days" readonly />
+      </label>
+      <label class="field" style="grid-column: span 3;">Точки участия (через запятую)
+        <input type="text" data-k="points" placeholder="Точка А, Точка Б, ..." />
+      </label>
+      <label class="field" style="grid-column: span 3;">Категории SKU / явные исключения
+        <textarea data-k="categories" placeholder="Что входит и что НЕ входит в периметр замера..."></textarea>
+      </label>
+    </div>
+  </div>
+
+  <!-- ============== 2. Календарь-исключений ============== -->
+  <h2>2. Календарь-исключений</h2>
+  <div class="card">
+    <div class="hint">Дни, выпавшие из периода (праздники, акции, инвентаризация, форс-мажор). Решение об исключении — ДО старта замера.</div>
+    <table id="exclusions">
+      <thead>
+        <tr>
+          <th style="width:130px">Дата</th>
+          <th style="width:160px">Тип</th>
+          <th>Причина</th>
+          <th style="width:140px">Решение</th>
+          <th style="width:60px"></th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="actions"><button onclick="addExclusion()">+ Добавить день</button></div>
+  </div>
+
+  <!-- ============== 3. Метрики ============== -->
+  <h2>3. KPI baseline</h2>
+  <div class="card">
+    <div class="hint">Значения по формулам из карточек определений. Источник, гранулярность и формула — в карточках <code>cards/&lt;KPI-ID&gt;.md</code>.</div>
+    <table id="metrics">
+      <thead>
+        <tr>
+          <th style="width:80px">KPI ID</th>
+          <th>Метрика</th>
+          <th style="width:120px" class="num">Значение</th>
+          <th style="width:90px">Ед.</th>
+          <th style="width:180px">Доверит. интервал</th>
+          <th style="width:160px">Источник</th>
+          <th>Примечания</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Заполняется JS из METRIC_TEMPLATE -->
+      </tbody>
+    </table>
+    <div class="actions">
+      <button onclick="addMetric()">+ Добавить произвольную метрику</button>
+      <button onclick="resetMetrics()">Сбросить к шаблону</button>
+    </div>
+  </div>
+
+  <!-- ============== 4. Counter-baseline ============== -->
+  <h2>4. Counter-baseline</h2>
+  <div class="card">
+    <div class="hint">Для каждой улучшаемой метрики — counter, который не должен ухудшиться.</div>
+    <table id="counters">
+      <thead>
+        <tr>
+          <th>Улучшаем</th>
+          <th>Counter (не ухудшаем)</th>
+          <th style="width:120px" class="num">Baseline counter</th>
+          <th style="width:120px">Порог тревоги</th>
+          <th>Логика</th>
+          <th style="width:60px"></th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="actions">
+      <button onclick="addCounter()">+ Добавить counter</button>
+      <button onclick="resetCounters()">Сбросить к шаблону</button>
+    </div>
+  </div>
+
+  <!-- ============== 5. Хронометраж ============== -->
+  <h2>5. Хронометраж сценариев</h2>
+  <div class="card">
+    <div class="hint">Минимум 3 замера на роль. Среднее считается автоматически.</div>
+    <table id="timings">
+      <thead>
+        <tr>
+          <th style="width:120px">Роль</th>
+          <th>Сценарий</th>
+          <th style="width:80px" class="num">З. 1, мин</th>
+          <th style="width:80px" class="num">З. 2, мин</th>
+          <th style="width:80px" class="num">З. 3, мин</th>
+          <th style="width:80px" class="num">З. 4, мин</th>
+          <th style="width:80px" class="num">З. 5, мин</th>
+          <th style="width:100px" class="num">Среднее</th>
+          <th style="width:60px"></th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="actions">
+      <button onclick="addTiming()">+ Добавить замер</button>
+      <button onclick="resetTimings()">Сбросить к шаблону</button>
+    </div>
+  </div>
+
+  <!-- ============== 6. NPS ============== -->
+  <h2>6. NPS / удовлетворённость (предзамер)</h2>
+  <div class="card">
+    <table id="nps">
+      <thead>
+        <tr>
+          <th style="width:200px">Роль</th>
+          <th style="width:100px" class="num">Промоутеры</th>
+          <th style="width:100px" class="num">Нейтральные</th>
+          <th style="width:100px" class="num">Детракторы</th>
+          <th style="width:100px" class="num">Всего</th>
+          <th style="width:100px" class="num">NPS</th>
+          <th>Примечания</th>
+          <th style="width:60px"></th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="actions">
+      <button onclick="addNps()">+ Роль</button>
+      <button onclick="resetNps()">Сбросить к шаблону</button>
+    </div>
+  </div>
+
+  <!-- ============== 7. Чек-лист готовности ============== -->
+  <h2>7. Чек-лист готовности артефактов</h2>
+  <div class="card">
+    <ul class="checklist" id="checklist"></ul>
+    <div class="hint" id="checklist_status" style="margin-top:8px"></div>
+  </div>
+
+  <!-- ============== 8. Подписи ============== -->
+  <h2>8. Подписи</h2>
+  <div class="card">
+    <div class="signatures">
+      <div class="sig">
+        <h4>Финансовый контролёр клиента</h4>
+        <label class="field">ФИО<input type="text" data-k="sig_fin_name" /></label>
+        <label class="field">Дата<input type="date" data-k="sig_fin_date" /></label>
+        <div class="hint" style="margin-top:8px">Подпись: ____________</div>
+      </div>
+      <div class="sig">
+        <h4>Операционный директор клиента</h4>
+        <label class="field">ФИО<input type="text" data-k="sig_ops_name" /></label>
+        <label class="field">Дата<input type="date" data-k="sig_ops_date" /></label>
+        <div class="hint" style="margin-top:8px">Подпись: ____________</div>
+      </div>
+      <div class="sig">
+        <h4>PMO Orakul</h4>
+        <label class="field">ФИО<input type="text" data-k="sig_pmo_name" /></label>
+        <label class="field">Дата<input type="date" data-k="sig_pmo_date" /></label>
+        <div class="hint" style="margin-top:8px">Подпись: ____________</div>
+      </div>
+    </div>
+    <div class="grid-2" style="margin-top:14px">
+      <label class="field">Запись в Decision Log (ID)
+        <input type="text" data-k="decision_log_id" placeholder="DL-2026-XXX" />
+      </label>
+      <label class="field">Статус отчёта
+        <select data-k="status_select" onchange="updateStatus()">
+          <option>Черновик</option>
+          <option>На ревью</option>
+          <option>Подписан и заморожен</option>
+        </select>
+      </label>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ============== Шаблоны строк ============== */
+const METRIC_TEMPLATE = [
+  { id: "BIZ-01", name: "% списаний к обороту", unit: "%", src: "Kiepper" },
+  { id: "BIZ-02", name: "Отклонение факта закупок от плана", unit: "%", src: "Kiepper + журнал" },
+  { id: "BIZ-03", name: "Средняя маржинальность позиций меню", unit: "%", src: "Kiepper" },
+  { id: "BIZ-04", name: "Часы на учёт/отчётность (управляющий)", unit: "ч/нед", src: "Хронометраж + опрос" },
+  { id: "BIZ-06", name: "Стоп-листы из-за нехватки", unit: "случ./нед", src: "Журнал управляющего" },
+  { id: "BIZ-07", name: "Закупочные затраты (база сравнения)", unit: "₽", src: "Kiepper" },
+  { id: "PROD-05", name: "NPS управляющего (предзамер)", unit: "NPS", src: "Опрос" },
+];
+
+const COUNTER_TEMPLATE = [
+  { main: "BIZ-01 ↓ списания", counter: "BIZ-06 стоп-листы", threshold: "+0%", logic: "Снижение списаний за счёт стоп-листов не считается победой" },
+  { main: "BIZ-07 ↓ закупочные затраты", counter: "BIZ-06 + жалобы поваров", threshold: "+0%", logic: "Дешевле ≠ лучше; контроль качества" },
+  { main: "BIZ-04 ↓ часы", counter: "PROD-05 NPS", threshold: "−5 NPS", logic: "Меньше времени за счёт стресса — не выигрыш" },
+];
+
+const TIMING_TEMPLATE = [
+  { role: "Управляющий", scenario: "Формирование заказа" },
+  { role: "Управляющий", scenario: "Еженедельная отчётность" },
+  { role: "Закупщик", scenario: "Сводный заказ на неделю" },
+  { role: "Шеф-повар", scenario: "Ревизия маржинальности меню" },
+];
+
+const NPS_TEMPLATE = [
+  { role: "Управляющий точкой" },
+  { role: "Закупщик" },
+  { role: "Шеф-повар / технолог" },
+  { role: "Операционный директор" },
+];
+
+const CHECKLIST = [
+  "Утверждены даты периода замера и длина",
+  "Утверждён календарь-исключений",
+  "Подписаны карточки определения по всем KPI",
+  "Назначены ответственные за системный канал (выгрузки Kiepper)",
+  "Назначены ответственные за журнал управляющего",
+  "Назначены ответственные за хронометраж",
+  "Создана структура /baseline/<клиент>/{raw,clean,surveys,timings,cards}",
+  "Заморожен шаблон анкеты NPS",
+  "Заморожен шаблон протокола хронометража",
+  "Назначена дата подписания Baseline Report",
+  "Подписанты согласовали присутствие/доступность",
+  "Data Audit Checklist Kiepper пройден",
+];
+
+/* ============== Утилиты ============== */
+const $ = (s, root=document) => root.querySelector(s);
+const $$ = (s, root=document) => Array.from(root.querySelectorAll(s));
+const STORAGE_KEY = "orakul_baseline_report_v1";
+
+function el(tag, attrs={}, ...children){
+  const e = document.createElement(tag);
+  for (const [k,v] of Object.entries(attrs)) {
+    if (k === "class") e.className = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else if (v !== undefined && v !== null) e.setAttribute(k, v);
+  }
+  for (const c of children.flat()) {
+    if (c == null) continue;
+    e.appendChild(typeof c === "string" ? document.createTextNode(c) : c);
+  }
+  return e;
+}
+
+function tdInput(opts={}) {
+  const td = document.createElement("td");
+  if (opts.num) td.className = "num";
+  const inp = document.createElement("input");
+  inp.type = opts.type || "text";
+  if (opts.placeholder) inp.placeholder = opts.placeholder;
+  if (opts.value !== undefined) inp.value = opts.value;
+  if (opts.computed) { inp.readOnly = true; td.className = "computed num"; }
+  if (opts.onInput) inp.addEventListener("input", opts.onInput);
+  inp.addEventListener("input", autosave);
+  td.appendChild(inp);
+  return td;
+}
+
+function tdText(text, opts={}) {
+  const td = document.createElement("td");
+  if (opts.num) td.className = "num";
+  if (opts.class) td.className += " " + opts.class;
+  td.textContent = text;
+  return td;
+}
+
+function tdRemove(tr) {
+  const td = document.createElement("td");
+  const btn = document.createElement("button");
+  btn.textContent = "✕";
+  btn.style.cssText = "border:0;background:transparent;color:var(--bad);cursor:pointer;font-size:14px;";
+  btn.onclick = () => { tr.remove(); autosave(); };
+  td.appendChild(btn);
+  return td;
+}
+
+/* ============== Метрики ============== */
+function addMetric(m={}) {
+  const tbody = $("#metrics tbody");
+  const tr = document.createElement("tr");
+  tr.appendChild(tdInput({ value: m.id || "", placeholder: "BIZ-XX" }));
+  tr.appendChild(tdInput({ value: m.name || "", placeholder: "название" }));
+  tr.appendChild(tdInput({ num: true, type: "number", value: m.value || "" }));
+  tr.appendChild(tdInput({ value: m.unit || "" }));
+  tr.appendChild(tdInput({ value: m.ci || "", placeholder: "напр. 3.8–4.6%" }));
+  tr.appendChild(tdInput({ value: m.src || "" }));
+  tr.appendChild(tdInput({ value: m.notes || "" }));
+  tbody.appendChild(tr);
+  // remove cell appended outside last column? We have 7 columns + drop button as extra
+  // Actually our header is 7 columns; add removal via right-click? Add an actions column would shift. Keep simple: append removal at end.
+  // But header doesn't have an 8th column. We'll allow removal by holding Shift+click on KPI ID cell.
+  autosave();
+}
+
+function resetMetrics() {
+  $("#metrics tbody").innerHTML = "";
+  METRIC_TEMPLATE.forEach(addMetric);
+}
+
+/* ============== Counter ============== */
+function addCounter(c={}) {
+  const tbody = $("#counters tbody");
+  const tr = document.createElement("tr");
+  tr.appendChild(tdInput({ value: c.main || "" }));
+  tr.appendChild(tdInput({ value: c.counter || "" }));
+  tr.appendChild(tdInput({ num: true, type: "number", value: c.baseline || "" }));
+  tr.appendChild(tdInput({ value: c.threshold || "" }));
+  tr.appendChild(tdInput({ value: c.logic || "" }));
+  tr.appendChild(tdRemove(tr));
+  tbody.appendChild(tr);
+  autosave();
+}
+function resetCounters() { $("#counters tbody").innerHTML = ""; COUNTER_TEMPLATE.forEach(addCounter); }
+
+/* ============== Хронометраж ============== */
+function addTiming(t={}) {
+  const tbody = $("#timings tbody");
+  const tr = document.createElement("tr");
+  const recalc = () => {
+    const vals = $$("input[data-measure]", tr).map(i => parseFloat(i.value)).filter(v => !isNaN(v));
+    const avg = vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1) : "";
+    $("input[data-avg]", tr).value = avg;
+  };
+  tr.appendChild(tdInput({ value: t.role || "" }));
+  tr.appendChild(tdInput({ value: t.scenario || "" }));
+  for (let i=0; i<5; i++) {
+    const td = tdInput({ num: true, type: "number", value: t["m"+i] || "", onInput: recalc });
+    td.querySelector("input").setAttribute("data-measure", i);
+    tr.appendChild(td);
+  }
+  const avgTd = tdInput({ computed: true });
+  avgTd.querySelector("input").setAttribute("data-avg", "1");
+  tr.appendChild(avgTd);
+  tr.appendChild(tdRemove(tr));
+  tbody.appendChild(tr);
+  recalc();
+  autosave();
+}
+function resetTimings() { $("#timings tbody").innerHTML = ""; TIMING_TEMPLATE.forEach(addTiming); }
+
+/* ============== NPS ============== */
+function addNps(n={}) {
+  const tbody = $("#nps tbody");
+  const tr = document.createElement("tr");
+  const recalc = () => {
+    const p = parseFloat($("input[data-nps=p]", tr).value) || 0;
+    const d = parseFloat($("input[data-nps=d]", tr).value) || 0;
+    const neut = parseFloat($("input[data-nps=n]", tr).value) || 0;
+    const total = p + d + neut;
+    $("input[data-nps=total]", tr).value = total || "";
+    $("input[data-nps=score]", tr).value = total ? Math.round(((p - d) / total) * 100) : "";
+  };
+  tr.appendChild(tdInput({ value: n.role || "" }));
+  const tp = tdInput({ num: true, type: "number", onInput: recalc }); tp.querySelector("input").setAttribute("data-nps","p"); tr.appendChild(tp);
+  const tn = tdInput({ num: true, type: "number", onInput: recalc }); tn.querySelector("input").setAttribute("data-nps","n"); tr.appendChild(tn);
+  const td = tdInput({ num: true, type: "number", onInput: recalc }); td.querySelector("input").setAttribute("data-nps","d"); tr.appendChild(td);
+  const tt = tdInput({ computed: true }); tt.querySelector("input").setAttribute("data-nps","total"); tr.appendChild(tt);
+  const ts = tdInput({ computed: true }); ts.querySelector("input").setAttribute("data-nps","score"); tr.appendChild(ts);
+  tr.appendChild(tdInput({ value: n.notes || "" }));
+  tr.appendChild(tdRemove(tr));
+  tbody.appendChild(tr);
+  autosave();
+}
+function resetNps() { $("#nps tbody").innerHTML = ""; NPS_TEMPLATE.forEach(addNps); }
+
+/* ============== Исключения ============== */
+function addExclusion(e={}) {
+  const tbody = $("#exclusions tbody");
+  const tr = document.createElement("tr");
+  tr.appendChild(tdInput({ type: "date", value: e.date || "" }));
+  const typeTd = document.createElement("td");
+  const sel = document.createElement("select");
+  ["Праздник", "Акция", "Инвентаризация", "Форс-мажор", "Другое"].forEach(o => {
+    const op = document.createElement("option"); op.textContent = o;
+    if (e.type === o) op.selected = true;
+    sel.appendChild(op);
+  });
+  sel.addEventListener("change", autosave);
+  typeTd.appendChild(sel);
+  tr.appendChild(typeTd);
+  tr.appendChild(tdInput({ value: e.reason || "" }));
+  const dec = document.createElement("td");
+  const decSel = document.createElement("select");
+  ["Исключить из периода", "Учесть с нормализацией", "Учесть как есть"].forEach(o => {
+    const op = document.createElement("option"); op.textContent = o;
+    if (e.decision === o) op.selected = true;
+    decSel.appendChild(op);
+  });
+  decSel.addEventListener("change", autosave);
+  dec.appendChild(decSel);
+  tr.appendChild(dec);
+  tr.appendChild(tdRemove(tr));
+  tbody.appendChild(tr);
+  autosave();
+}
+
+/* ============== Чек-лист ============== */
+function renderChecklist() {
+  const ul = $("#checklist");
+  ul.innerHTML = "";
+  CHECKLIST.forEach((item, i) => {
+    const li = document.createElement("li");
+    li.className = "check";
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.id = "chk_" + i;
+    cb.addEventListener("change", () => { autosave(); updateChecklistStatus(); });
+    const lb = document.createElement("label");
+    lb.htmlFor = cb.id;
+    lb.textContent = item;
+    li.appendChild(cb);
+    li.appendChild(lb);
+    ul.appendChild(li);
+  });
+  updateChecklistStatus();
+}
+function updateChecklistStatus() {
+  const total = CHECKLIST.length;
+  const done = $$("#checklist input[type=checkbox]:checked").length;
+  const s = $("#checklist_status");
+  s.textContent = `Выполнено ${done} из ${total}.` + (done === total ? " Готов к старту замера." : " Дозаполните до старта замера.");
+  s.style.color = done === total ? "var(--ok)" : "var(--warn)";
+}
+
+/* ============== Период и статус ============== */
+function recalcAll() {
+  const f = $("input[data-k=period_from]").value;
+  const t = $("input[data-k=period_to]").value;
+  if (f && t) {
+    const days = Math.round((new Date(t) - new Date(f)) / 86400000) + 1;
+    $("input[data-k=period_days]").value = days > 0 ? days : "";
+  }
+  autosave();
+}
+function updateStatus() {
+  const v = $("select[data-k=status_select]").value;
+  $("#status").textContent = v;
+  $("#status").style.color = v === "Подписан и заморожен" ? "var(--ok)" : (v === "На ревью" ? "var(--warn)" : "var(--muted)");
+  autosave();
+}
+
+/* ============== Сериализация ============== */
+function collectState() {
+  const state = { fields: {}, exclusions: [], metrics: [], counters: [], timings: [], nps: [], checklist: [] };
+  $$("[data-k]").forEach(i => state.fields[i.dataset.k] = i.value);
+  $$("#exclusions tbody tr").forEach(tr => {
+    state.exclusions.push({
+      date: tr.children[0].querySelector("input").value,
+      type: tr.children[1].querySelector("select").value,
+      reason: tr.children[2].querySelector("input").value,
+      decision: tr.children[3].querySelector("select").value,
+    });
+  });
+  $$("#metrics tbody tr").forEach(tr => {
+    state.metrics.push({
+      id: tr.children[0].querySelector("input").value,
+      name: tr.children[1].querySelector("input").value,
+      value: tr.children[2].querySelector("input").value,
+      unit: tr.children[3].querySelector("input").value,
+      ci: tr.children[4].querySelector("input").value,
+      src: tr.children[5].querySelector("input").value,
+      notes: tr.children[6].querySelector("input").value,
+    });
+  });
+  $$("#counters tbody tr").forEach(tr => {
+    state.counters.push({
+      main: tr.children[0].querySelector("input").value,
+      counter: tr.children[1].querySelector("input").value,
+      baseline: tr.children[2].querySelector("input").value,
+      threshold: tr.children[3].querySelector("input").value,
+      logic: tr.children[4].querySelector("input").value,
+    });
+  });
+  $$("#timings tbody tr").forEach(tr => {
+    state.timings.push({
+      role: tr.children[0].querySelector("input").value,
+      scenario: tr.children[1].querySelector("input").value,
+      m0: tr.children[2].querySelector("input").value,
+      m1: tr.children[3].querySelector("input").value,
+      m2: tr.children[4].querySelector("input").value,
+      m3: tr.children[5].querySelector("input").value,
+      m4: tr.children[6].querySelector("input").value,
+    });
+  });
+  $$("#nps tbody tr").forEach(tr => {
+    state.nps.push({
+      role: tr.children[0].querySelector("input").value,
+      p: tr.children[1].querySelector("input").value,
+      n: tr.children[2].querySelector("input").value,
+      d: tr.children[3].querySelector("input").value,
+      notes: tr.children[6].querySelector("input").value,
+    });
+  });
+  state.checklist = $$("#checklist input[type=checkbox]").map(c => c.checked);
+  return state;
+}
+
+function applyState(state) {
+  if (!state) return;
+  $$("#exclusions tbody").forEach(t => t.innerHTML = "");
+  $$("#metrics tbody").forEach(t => t.innerHTML = "");
+  $$("#counters tbody").forEach(t => t.innerHTML = "");
+  $$("#timings tbody").forEach(t => t.innerHTML = "");
+  $$("#nps tbody").forEach(t => t.innerHTML = "");
+  (state.exclusions || []).forEach(addExclusion);
+  (state.metrics || []).forEach(addMetric);
+  (state.counters || []).forEach(addCounter);
+  (state.timings || []).forEach(addTiming);
+  (state.nps || []).forEach(addNps);
+  if (state.fields) {
+    for (const [k,v] of Object.entries(state.fields)) {
+      const el = document.querySelector(`[data-k="${k}"]`);
+      if (el) el.value = v;
+    }
+  }
+  $$("#checklist input[type=checkbox]").forEach((cb,i) => cb.checked = !!(state.checklist && state.checklist[i]));
+  updateChecklistStatus();
+  recalcAll();
+  updateStatus();
+}
+
+/* ============== Автосейв / экспорт ============== */
+let saveTimer;
+function autosave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(collectState()));
+    } catch (e) { /* quota */ }
+  }, 400);
+}
+function saveSnapshot() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(collectState()));
+  flash("Сохранено в браузере");
+}
+function loadSnapshot() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) { flash("Нет сохранённой версии"); return; }
+  applyState(JSON.parse(raw));
+  flash("Загружено");
+}
+function exportJSON() {
+  const blob = new Blob([JSON.stringify(collectState(), null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  const client = (collectState().fields.client || "client").replace(/[^a-zа-я0-9_-]/gi, "_");
+  a.download = `baseline-${client}-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+}
+function importJSON() {
+  const inp = document.createElement("input");
+  inp.type = "file"; inp.accept = "application/json";
+  inp.onchange = () => {
+    const f = inp.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = () => { try { applyState(JSON.parse(r.result)); flash("Импортировано"); } catch { flash("Ошибка чтения JSON"); } };
+    r.readAsText(f);
+  };
+  inp.click();
+}
+function clearAll() {
+  if (!confirm("Очистить весь отчёт? Это действие необратимо в текущем окне.")) return;
+  localStorage.removeItem(STORAGE_KEY);
+  resetMetrics(); resetCounters(); resetTimings(); resetNps();
+  $$("[data-k]").forEach(i => { if (i.tagName !== "SELECT") i.value = ""; });
+  $$("#exclusions tbody, #checklist").forEach(t => t.innerHTML = "");
+  renderChecklist();
+}
+function flash(msg) {
+  const s = $("#status");
+  const prev = s.textContent;
+  s.textContent = msg;
+  setTimeout(() => updateStatus(), 1200);
+}
+
+/* ============== Инициализация ============== */
+document.addEventListener("input", autosave);
+document.addEventListener("change", autosave);
+
+renderChecklist();
+const saved = localStorage.getItem(STORAGE_KEY);
+if (saved) {
+  try { applyState(JSON.parse(saved)); }
+  catch { resetMetrics(); resetCounters(); resetTimings(); resetNps(); }
+} else {
+  resetMetrics(); resetCounters(); resetTimings(); resetNps();
+}
+</script>
+</body>
+</html>
