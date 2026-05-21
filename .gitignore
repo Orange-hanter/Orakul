@@ -1,1 +1,4 @@
 .playwright-mcp/*
+/*.png
+data/*
+.DS_Store

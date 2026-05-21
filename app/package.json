@@ -1,0 +1,18 @@
+{
+  "name": "orakul-pilot-app",
+  "version": "1.0.0",
+  "description": "Tablet app for Orakul pilot data collection",
+  "scripts": {
+    "start": "node server.js",
+    "dev:server": "node --watch server.js",
+    "dev:client": "cd client && npm run dev",
+    "build": "cd client && npm run build",
+    "setup": "npm install && cd client && npm install"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2"
+  }
+}

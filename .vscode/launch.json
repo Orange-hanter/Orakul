@@ -1,0 +1,19 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Server (dev, --watch)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run dev:server",
+      "cwd": "${workspaceFolder}/app"
+    },
+    {
+      "name": "Server (prod build)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run start",
+      "cwd": "${workspaceFolder}/app"
+    }
+  ]
+}
