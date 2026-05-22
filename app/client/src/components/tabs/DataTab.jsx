@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../../api.js';
 import { PLUGINS } from '../../plugins/index.js';
 import { nplural } from '../../utils/plural.js';
+import AuditCard from '../AuditCard.jsx';
 
 function calcDaysLeft(productId, stockEntries, current) {
   if (!current || current <= 0) return 0;
@@ -479,6 +480,9 @@ export default function DataTab({ records, venues = [], onReload, showToast }) {
           {importing ? '…' : '⬆ Загрузить из файла'}
         </button>
       </div>
+
+      {/* ── Audit log (O01) ── */}
+      <AuditCard showToast={showToast} />
 
       {/* ── Info ── */}
       <div className="export-card">

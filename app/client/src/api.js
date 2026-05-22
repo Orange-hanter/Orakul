@@ -38,6 +38,15 @@ export const api = {
 
   stats: () => req('GET', '/stats'),
 
+  audit: (params = {}) => {
+    const qs = new URLSearchParams();
+    if (params.limit) qs.set('limit', params.limit);
+    if (params.type)  qs.set('type',  params.type);
+    if (params.op)    qs.set('op',    params.op);
+    const suffix = qs.toString() ? `?${qs}` : '';
+    return req('GET', `/audit${suffix}`);
+  },
+
   telegram: {
     getConfig:    ()            => req('GET',    '/telegram/config'),
     saveConfig:   (botToken)    => req('POST',   '/telegram/config', { botToken }),

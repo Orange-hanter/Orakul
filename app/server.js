@@ -60,6 +60,75 @@ async function withStoreLock(fn) {
   finally { unlock(); }
 }
 
+// ── O01 Audit log ─────────────────────────────────────────────────────────────
+// Append-only NDJSON. Не зашифровано — это метаданные «кто/когда/что», а не сами
+// данные (которые остаются в data/store.enc под AES-GCM). Цель: forensics
+// «откуда взялась эта запись», «когда удалили блюдо», «кто менял цены».
+//
+// Ротация: при превышении AUDIT_MAX_BYTES (по умолчанию 5 MB) переименовываем
+// файл в audit-<ts>.jsonl и стартуем новый. Старые лежат рядом для разбора.
+
+const AUDIT_FILE = path.join(__dirname, 'data', 'audit.jsonl');
+const AUDIT_MAX_BYTES = Number(process.env.AUDIT_MAX_BYTES) || 5 * 1024 * 1024;
+
+function shortName(rec) {
+  if (!rec) return '';
+  if (rec.name) return rec.name;
+  if (rec.productName) return rec.productName;
+  if (rec.number) return rec.number;
+  if (rec.itemName) return rec.itemName;
+  return '';
+}
+
+function diffKeys(prev, next) {
+  if (!prev || !next) return [];
+  const changed = [];
+  for (const k of Object.keys(next)) {
+    if (k === 'updatedAt') continue;
+    if (JSON.stringify(prev[k]) !== JSON.stringify(next[k])) changed.push(k);
+  }
+  return changed;
+}
+
+function rotateAuditIfNeeded() {
+  try {
+    if (!fs.existsSync(AUDIT_FILE)) return;
+    const size = fs.statSync(AUDIT_FILE).size;
+    if (size < AUDIT_MAX_BYTES) return;
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    fs.renameSync(AUDIT_FILE, path.join(__dirname, 'data', `audit-${stamp}.jsonl`));
+  } catch (e) {
+    console.warn('audit: rotate failed:', e.message);
+  }
+}
+
+function appendAudit(entry) {
+  try {
+    rotateAuditIfNeeded();
+    fs.appendFileSync(AUDIT_FILE, JSON.stringify(entry) + '\n', 'utf8');
+  } catch (e) {
+    console.warn('audit: append failed:', e.message);
+  }
+}
+
+function readAudit({ limit = 200, type = null, op = null } = {}) {
+  if (!fs.existsSync(AUDIT_FILE)) return [];
+  // Грубо, без streaming — для пилота при < 5 MB ок. При выходе на > 1 клиента
+  // переписать через readline.createInterface (см. O06 Postgres план).
+  const raw = fs.readFileSync(AUDIT_FILE, 'utf8');
+  const lines = raw.split('\n').filter(Boolean);
+  const out = [];
+  for (let i = lines.length - 1; i >= 0 && out.length < limit; i--) {
+    try {
+      const e = JSON.parse(lines[i]);
+      if (type && e.recordType !== type) continue;
+      if (op && e.op !== op) continue;
+      out.push(e);
+    } catch {}
+  }
+  return out;
+}
+
 // One-shot migration: legacy stock_entry { quantity } → { kind:'inventory', resulting, delta:null, source:'manual' }
 function migrateStockEntries() {
   if (!fs.existsSync(DATA)) return;
@@ -212,6 +281,15 @@ app.post('/api/records', auth, (req, res) => {
   }
 
   saveStore(store);
+  appendAudit({
+    ts: Date.now(),
+    op: 'create',
+    recordId: record.id,
+    recordType: record.type,
+    by: 'auth',
+    name: shortName(record),
+    venueId: record.venueId || null,
+  });
   res.status(201).json(record);
 });
 
@@ -242,6 +320,16 @@ app.put('/api/records/:id', auth, (req, res) => {
   }
 
   saveStore(store);
+  appendAudit({
+    ts: Date.now(),
+    op: 'update',
+    recordId: next.id,
+    recordType: next.type,
+    by: 'auth',
+    name: shortName(next),
+    venueId: next.venueId || null,
+    changed: diffKeys(prev, next),
+  });
   res.json(next);
 
   // F04 + F06: после ответа клиенту проверяем алёрты на повышение цены.
@@ -275,7 +363,23 @@ app.delete('/api/records/:id', auth, (req, res) => {
   }
 
   saveStore(store);
+  appendAudit({
+    ts: Date.now(),
+    op: 'delete',
+    recordId: target.id,
+    recordType: target.type,
+    by: 'auth',
+    name: shortName(target),
+    venueId: target.venueId || null,
+  });
   res.json({ ok: true });
+});
+
+app.get('/api/audit', auth, (req, res) => {
+  const limit = Math.min(Number(req.query.limit) || 200, 1000);
+  const type  = req.query.type || null;
+  const op    = req.query.op   || null;
+  res.json(readAudit({ limit, type, op }));
 });
 
 // ── Export / Import ────────────────────────────────────────────────────────────
