@@ -7,6 +7,7 @@ import {
 import SettingsModal, { CATEGORY_BY_ID } from './finance/SettingsModal.jsx';
 import CompareView from './finance/CompareView.jsx';
 import ABCMenuCard from './finance/ABCMenuCard.jsx';
+import WriteoffControlCard from './finance/WriteoffControlCard.jsx';
 
 const CURRENCY = 'BYN';
 const DAY_MS   = 86_400_000;
@@ -288,6 +289,8 @@ export default function FinanceTab({ records, allRecords = [], venues = [], curr
                 suppliers={records.filter(r => r.type === 'supplier')}
                 period={period}
               />
+
+              <WriteoffControlCard records={records} period={period} />
             </>
           )
         )}
