@@ -1,148 +1,32 @@
 /*
  * iiko — опциональный плагин интеграции с iiko POS.
  *
- * Демонстрирует, что плагинный паттерн масштабируется:
- *   • Контракт идентичен Quick Resto (register, SETTINGS_TYPE, maskedSettings).
- *   • Отличается: API Key вместо basic auth, мок генерит несколько мелких
- *     чеков (характерно для пиццерий/фастфуда), брендовый icon.
+ * Контракт идентичен Quick Resto; отличается списком полей (API Key vs basic
+ * auth) и характером мок-чеков (много мелких — пиццерия/фастфуд).
  *
- * Live-режим (реальные вызовы iiko Cloud API /api/1/auth → /api/1/olap/...) —
- * stub в R3.
+ * Live-режим (iiko Cloud API /api/1/auth → /api/1/olap/...) — stub в R3.
  */
 
-const crypto = require('crypto');
+import crypto from 'node:crypto';
+import { register as registerRouter, maskSettings } from './createIntegrationRouter.js';
 
-const SETTINGS_TYPE = 'iiko_settings';
+export const SETTINGS_TYPE = 'iiko_settings';
 
-function maskedSettings(s) {
-  if (!s) return null;
-  return {
-    ...s,
-    apiKey: s.apiKey ? '••••••' : '',
-  };
-}
-
-function findSettings(store) {
-  return store.records.find(r => r.type === SETTINGS_TYPE) || null;
-}
-
-function register(app, deps) {
-  const { auth, loadStore, saveStore, withStoreLock } = deps;
-  const lock = withStoreLock || (async fn => fn());
-
-  app.get('/api/integrations/iiko', auth, (_req, res) => {
-    const store = loadStore();
-    const s = findSettings(store);
-    res.json({ configured: !!s, settings: maskedSettings(s) });
-  });
-
-  app.post('/api/integrations/iiko/config', auth, (req, res) => {
-    const {
-      baseUrl = 'https://api-ru.iiko.services',
-      apiKey  = '',
-      venueId = null,
-      mode    = 'mock',
-      active  = false,
-    } = req.body || {};
-
-    if (!['mock', 'live'].includes(mode)) {
-      return res.status(400).json({ error: 'mode must be mock or live' });
-    }
-    if (mode === 'live' && !apiKey.trim()) {
-      return res.status(400).json({ error: 'apiKey обязателен для live-режима' });
-    }
-
-    const store = loadStore();
-    const idx = store.records.findIndex(r => r.type === SETTINGS_TYPE);
-    const prev = idx >= 0 ? store.records[idx] : null;
-    const next = {
-      id:              prev?.id ?? crypto.randomUUID(),
-      type:            SETTINGS_TYPE,
-      baseUrl:         baseUrl.trim(),
-      // Если новый apiKey пустой — сохраняем старый
-      apiKey:          apiKey || prev?.apiKey || '',
-      venueId,
-      mode,
-      active:          !!active,
-      lastSyncAt:      prev?.lastSyncAt      ?? null,
-      lastSyncStatus:  prev?.lastSyncStatus  ?? null,
-      lastSyncMessage: prev?.lastSyncMessage ?? null,
-      createdAt:       prev?.createdAt ?? Date.now(),
-      updatedAt:       Date.now(),
-    };
-    if (idx >= 0) store.records[idx] = next;
-    else          store.records.push(next);
-    saveStore(store);
-    res.json({ ok: true, settings: maskedSettings(next) });
-  });
-
-  app.delete('/api/integrations/iiko', auth, (_req, res) => {
-    const store = loadStore();
-    store.records = store.records.filter(r => r.type !== SETTINGS_TYPE);
-    saveStore(store);
-    res.json({ ok: true });
-  });
-
-  app.post('/api/integrations/iiko/test', auth, (_req, res) => {
-    const store = loadStore();
-    const s = findSettings(store);
-    if (!s) return res.status(400).json({ error: 'Not configured' });
-    if (s.mode === 'mock') {
-      return res.json({ ok: true, message: 'Mock-режим. Соединение не требуется.' });
-    }
-    return res.status(501).json({ error: 'Live-режим в разработке. Используйте mock.' });
-  });
-
-  app.post('/api/integrations/iiko/sync', auth, async (_req, res) => {
-    // See quickresto.js sync handler for explanation of the lock.
-    let status, body;
-    await lock(async () => {
-      const store = loadStore();
-      const s = findSettings(store);
-      if (!s)        { status = 400; body = { error: 'Not configured' }; return; }
-      if (!s.active) { status = 400; body = { error: 'Integration paused (active=false)' }; return; }
-
-      try {
-        const created = s.mode === 'mock'
-          ? mockSync(store, s)
-          : await liveSync(store, s);
-        s.lastSyncAt = Date.now();
-        s.lastSyncStatus = 'ok';
-        s.lastSyncMessage = `Импортировано чеков: ${created.length}`;
-        s.updatedAt = Date.now();
-        saveStore(store);
-        status = 200;
-        body = {
-          ok:       true,
-          imported: created.length,
-          total:    created.reduce((a, b) => a + b.amount, 0),
-          items:    created,
-        };
-      } catch (e) {
-        s.lastSyncAt = Date.now();
-        s.lastSyncStatus = 'error';
-        s.lastSyncMessage = e.message;
-        s.updatedAt = Date.now();
-        saveStore(store);
-        status = 500; body = { error: e.message };
-      }
-    });
-    res.status(status).json(body);
-  });
-}
+const FIELDS = [
+  { name: 'baseUrl', default: 'https://api-ru.iiko.services', required: false, secret: false },
+  { name: 'apiKey',  default: '',                              required: true,  secret: true  },
+];
 
 function mockSync(store, settings) {
-  // iiko-стиль: много мелких чеков (характерно для кофейни/пиццерии)
-  const count = 5 + Math.floor(Math.random() * 4); // 5–8 чеков
+  // iiko-стиль: 5–8 мелких чеков
+  const count = 5 + Math.floor(Math.random() * 4);
   const today = new Date().toISOString().slice(0, 10);
   const created = [];
-
   for (let i = 0; i < count; i++) {
     const amount = Math.round((4 + Math.random() * 18) * 100) / 100;
     const externalId = `iiko-mock-${Date.now()}-${i}`;
     if (store.records.some(r => r.source === 'iiko' && r.externalId === externalId)) continue;
-
-    const record = {
+    store.records.push({
       id:         crypto.randomUUID(),
       type:       'revenue_entry',
       venueId:    settings.venueId || null,
@@ -154,11 +38,9 @@ function mockSync(store, settings) {
       note:       '🍴 Mock-чек iiko',
       createdAt:  Date.now(),
       updatedAt:  Date.now(),
-    };
-    store.records.push(record);
+    });
     created.push({ externalId, amount });
   }
-
   return created;
 }
 
@@ -167,4 +49,15 @@ async function liveSync(_store, _settings) {
   throw new Error('Live-режим iiko пока не реализован.');
 }
 
-module.exports = { register, SETTINGS_TYPE, maskedSettings };
+export function register(app, deps) {
+  registerRouter(app, deps, {
+    id: 'iiko',
+    settingsType: SETTINGS_TYPE,
+    fields: FIELDS,
+    mockSync,
+    liveSync,
+    liveTestNotReady: 'Live-режим в разработке. Используйте mock.',
+  });
+}
+
+export const maskedSettings = s => maskSettings(s, FIELDS);
