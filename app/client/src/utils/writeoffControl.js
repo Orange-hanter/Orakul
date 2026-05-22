@@ -21,8 +21,6 @@
  *   computeWriteoffControl(records, period) → array sorted by abs(diff) desc
  */
 
-const DAY_MS = 86_400_000;
-
 function inPeriod(ts, period) {
   if (!ts) return false;
   return ts >= period.start.getTime() && ts <= period.end.getTime();

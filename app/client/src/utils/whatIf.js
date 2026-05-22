@@ -24,8 +24,7 @@
 
 import { computeDishEconomics } from './dishCost.js';
 import { toIsoDate, salesInPeriod } from './dishSales.js';
-
-const DAY_MS = 86_400_000;
+import { DAY_MS } from './time.js';
 
 /**
  * Объём продаж блюда за последние N дней (по умолчанию 7).

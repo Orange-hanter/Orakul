@@ -18,8 +18,7 @@
  */
 
 import { toIsoDate } from './dishSales.js';
-
-const DAY_MS = 86_400_000;
+import { DAY_MS } from './time.js';
 
 function dailyWriteoffMap(entries, productId, windowDaysIso) {
   const map = new Map(); // dateIso → sum

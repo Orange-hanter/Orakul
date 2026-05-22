@@ -3,7 +3,7 @@
  * Выделены из FinanceTab.jsx, чтобы покрыть unit-тестами без JSX-парсера.
  */
 
-const DAY_MS = 86_400_000;
+import { DAY_MS } from './time.js';
 
 /**
  * Доля помесячной суммы расхода, попадающая в период (start..end).

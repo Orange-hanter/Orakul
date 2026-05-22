@@ -14,8 +14,7 @@
  */
 
 import { toIsoDate } from './dishSales.js';
-
-const DAY_MS = 86_400_000;
+import { DAY_MS } from './time.js';
 
 /**
  * Считает дневной forecast на N дней вперёд для конкретного блюда.

@@ -8,15 +8,9 @@
  * Этот модуль — чистые читающие функции. Запись идёт через api.records.
  */
 
-/** ISO date helper (YYYY-MM-DD). */
-export function toIsoDate(d) {
-  const x = d instanceof Date ? d : new Date(d);
-  // Локальная дата (не UTC) — чтобы продажи «сегодня» не уезжали на завтра по гринвичу.
-  const yyyy = x.getFullYear();
-  const mm = String(x.getMonth() + 1).padStart(2, '0');
-  const dd = String(x.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
-}
+// toIsoDate переехал в utils/time.js — единый источник истины.
+// Re-export сохраняем для обратной совместимости с существующими импортами.
+export { toIsoDate } from './time.js';
 
 /**
  * Найти запись dish_sale для (dishId, date). Дата сравнивается как строка.

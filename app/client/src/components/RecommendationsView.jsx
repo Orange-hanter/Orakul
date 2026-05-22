@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { buildAllRecommendations, computeARAR } from '../utils/recommendations.js';
 import { toIsoDate } from '../utils/dishSales.js';
+import { DAY_MS } from '../utils/time.js';
 import { nplural } from '../utils/plural.js';
 
 /*
@@ -48,7 +49,7 @@ function WhyBlock({ rec }) {
         gap: 4, marginBottom: 8,
       }}>
         {f.dailyForecast.map((v, i) => {
-          const d = new Date(startDate.getTime() + i * 86_400_000);
+          const d = new Date(startDate.getTime() + i * DAY_MS);
           return (
             <div key={i} style={{ textAlign: 'center', fontSize: 11 }}>
               <div style={{ color: 'var(--neutral)' }}>{DAYS_RU[d.getDay()]}</div>

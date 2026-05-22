@@ -1,0 +1,12 @@
+[
+  "product",
+  "stop",
+  "stock_entry",
+  "dish",
+  "dish_sale",
+  "order",
+  "revenue_entry",
+  "fixed_expense",
+  "telegram_chat",
+  "recommendation_action"
+]
