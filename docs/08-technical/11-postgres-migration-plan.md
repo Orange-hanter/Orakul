@@ -154,7 +154,7 @@ CREATE INDEX idx_audit_ts     ON audit_log (ts DESC);
   на той же VM (если < 3 клиентов). Решение по managed vs self-host — по факту
   bюджета.
 - Применяем схему из §3.
-- Пишем `app/db.js` (CommonJS, `pg`-клиент) с connection pool.
+- Пишем `app/server/db.js` (ESM — сервер с 2026-05-22 на `"type":"module"`, `pg`-клиент) с connection pool. Экспортируется как именованные функции (`query`, `withTx`), регистрируется из `server.js`.
 - Wrapper `loadStore() / saveStore()` начинает работать в dual-write режиме:
   пишет и в `store.enc`, и в Postgres. Чтение — пока только из `store.enc`.
 

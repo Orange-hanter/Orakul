@@ -1,7 +1,7 @@
 ---
 Документ: Pilot App — Deployment Runbook
-Версия: 1.1
-Дата: 2026-05-22
+Версия: 1.2
+Дата: 2026-05-23
 Статус: Действующий
 Владелец: Daniil Akhramiuk
 Связанные документы: [MVP Architecture](00-mvp-architecture.md), [Pilot App README](../../app/README.md)
@@ -43,7 +43,7 @@
 | Firewall (ufw) | **неактивен** (см. п. 7. Риски) |
 | TLS / HTTPS | Let's Encrypt, cert для `157-22-174-219.nip.io` + `app.157-22-174-219.nip.io`, истекает 2026-08-20, авто-renew через `certbot.timer` |
 
-> Внутренний порт `3001` слушается на `0.0.0.0` процессом node — потенциально доступен снаружи в обход nginx (см. п. 7).
+> Внутренний порт `3001` слушается на `127.0.0.1` (loopback) — с 2026-05-22 это поведение по умолчанию (`BIND_HOST=127.0.0.1` в `server/config.js`). Внешний доступ к API возможен только через nginx. Старый риск «3001 на `0.0.0.0`» закрыт — см. §7 R3.
 
 > **Важно**: старый URL `http://157.22.174.219/` продолжает работать (nginx принимает любой Host), но теперь отдаёт лендинг, а не приложение. Для пилотных пользователей актуальная ссылка — `https://app.157-22-174-219.nip.io/`.
 
@@ -59,18 +59,33 @@
                            # Владелец: www-data:www-data, chmod 644
 
 /opt/orakul/
-├── server.js              # Express API
-├── crypto.js              # AES-256-GCM обёртка
+├── server.js              # точка входа (~50 строк, только wiring)
+├── crypto.js              # AES-256-GCM обёртка + PBKDF2 key cache
 ├── seed-demo.js           # CLI для наполнения демо-данными (не запускается сервисом)
-├── package.json
+├── package.json           # "type":"module" — сервер на ESM
 ├── node_modules/          # production-only (npm install --omit=dev)
 ├── .env                   # секреты — chmod 600, owner orakul:orakul
 ├── data/
 │   ├── store.enc          # зашифрованные записи (создаётся при первом запуске)
+│   ├── audit.jsonl        # append-only NDJSON, ротация по AUDIT_MAX_BYTES (5 MB)
 │   └── store.enc.backup-* # бэкапы перед релизами (создаются вручную — см. §8.5)
-├── integrations/          # серверные модули плагинов (опциональные)
-│   ├── quickresto.js      # Quick Resto POS — mock + stub для live
-│   └── iiko.js            # iiko POS — mock + stub для live
+├── server/                # модули сервера (Phase 4 refactor, 2026-05-22)
+│   ├── config.js          # env-валидация + константы (fail-fast старт)
+│   ├── store.js           # load/save + async mutex + decrypt-fail guard
+│   ├── migrations.js      # startup migrations (stock_entry, multi-venue)
+│   ├── audit.js           # NDJSON append-only + ротация
+│   ├── auth.js            # JWT middleware + login throttle 5/15min
+│   ├── records.js         # /api/records CRUD + /api/audit + /api/stats
+│   ├── exportImport.js    # /api/export, /api/import
+│   ├── telegram.js        # Telegram API + дайджесты + polling + endpoints
+│   ├── alerts.js          # F04/F06 price-jump алёрты
+│   └── health.js          # /api/health (без auth)
+├── shared/
+│   └── scopedTypes.json   # venue-scoped record types (общий с клиентом)
+├── integrations/          # серверные плагины POS-интеграций
+│   ├── createIntegrationRouter.js  # фабрика REST-эндпоинтов
+│   ├── quickresto.js      # Quick Resto — mock + stub для live
+│   └── iiko.js            # iiko — mock + stub для live
 └── client/
     ├── package.json       # client deps (включая xlsx с CDN SheetJS)
     ├── node_modules/      # dev-deps для сборки (опционально на проде — см. §8.5)
@@ -95,13 +110,20 @@
 ```
 APP_PASSWORD=zU1fxbzYGLi2zYCYbd0B
 JWT_SECRET=343cf3e96a968f08cc0db712655ec0fafb11aa07bedb3aec530de16f21c47a11
+NODE_ENV=production
 PORT=3001
+BIND_HOST=127.0.0.1
+# CORS_ORIGIN=https://app.example.com    # пусто = деny-by-default в prod
 ```
 
 | Переменная | Назначение | Что произойдёт при потере / смене |
 |---|---|---|
-| `APP_PASSWORD` | (1) Пароль для входа в приложение через `/api/auth/login`; (2) **источник ключа AES-256-GCM** для шифрования `data/store.enc` через PBKDF2 (100 000 итераций, SHA-256). | **Потеря = безвозвратная потеря данных.** Расшифровать `store.enc` без пароля невозможно. Смена пароля = `store.enc` перестаёт открываться, нужно экспортировать данные старым паролем → импортировать новым (но импорт тоже требует знания пароля файла). |
-| `JWT_SECRET` | Подпись JWT-токенов выдаваемых после логина (срок жизни — 24 ч). | Смена = все активные сессии в браузерах инвалидируются, пользователи логинятся заново. На сами данные не влияет. |
+| `APP_PASSWORD` | (1) Пароль для входа в приложение через `/api/auth/login`; (2) **источник ключа AES-256-GCM** для шифрования `data/store.enc` через PBKDF2 (100 000 итераций, SHA-256). Минимум 12 символов — короче выдаёт warning. | **Потеря = безвозвратная потеря данных.** Расшифровать `store.enc` без пароля невозможно. Смена пароля = `store.enc` перестаёт открываться; экспортировать данные старым паролем → импортировать новым. С 2026-05-22 миграции на старте отказываются работать с decrypt-failed store — раньше неверный пароль молча перетирал файл пустым. |
+| `JWT_SECRET` | Подпись JWT-токенов выдаваемых после логина (срок жизни — 24 ч). **В production обязателен** — без него сервер делает `process.exit(1)` на старте. В dev — если не задан, генерируется случайный (токены не переживают рестарт). | Смена = все активные сессии в браузерах инвалидируются, пользователи логинятся заново. На сами данные не влияет. |
+| `NODE_ENV` | `production` включает fail-fast на JWT_SECRET и закрывает CORS по умолчанию. **На проде должно быть `production`.** | Без него работает как dev — открытый CORS, ephemeral JWT-секрет. |
+| `BIND_HOST` | Адрес для `listen()`. Default — `127.0.0.1` (loopback). Для Docker — `0.0.0.0`. | На bare-metal с nginx-фронтом менять не нужно. |
+| `CORS_ORIGIN` | Whitelist origin'ов через запятую. Пусто в prod = deny-all (расчёт на same-origin через nginx). | Менять только при выносе клиента на другой домен. |
+| `AUDIT_MAX_BYTES` | Порог ротации `audit.jsonl`. Default 5 MB. | Не критично. |
 | `PORT` | Локальный порт Express. | Должен совпадать с `proxy_pass` в nginx-конфиге. |
 
 **Резервная копия пароля**: на текущий момент пароль существует **только** в `/opt/orakul/.env`. Если файл потерян и пароль не выписан в менеджер паролей — данные пилота восстановлению не подлежат. **Действие**: сохранить `APP_PASSWORD` в защищённое хранилище (1Password / Bitwarden / KeePass).
@@ -260,13 +282,23 @@ echo | openssl s_client -connect 157.22.174.219:443 -servername 157-22-174-219.n
 - **Чем смягчить**: сохранить пароль в менеджер паролей. Дополнительно — регулярный экспорт `data/store.enc` через UI приложения (вкладка «Данные»).
 - **Триггер закрытия**: сразу.
 
-### R3. UFW неактивен, порт 3001 биндится на `0.0.0.0` — высокий
-- **Что**: `node` слушает `*:3001`, а не `127.0.0.1:3001`. Firewall выключен. То есть API доступен и напрямую, минуя nginx.
-- **Почему важно**: лишняя поверхность атаки. Любые будущие nginx-фичи (rate limit, заголовки) обходятся прямым обращением к `:3001`.
-- **Чем смягчить (любой из вариантов)**:
-  - Включить ufw: `ufw default deny incoming && ufw allow 22 && ufw allow 80 && ufw enable`.
-  - Или изменить `server.js`: `app.listen(PORT, '127.0.0.1', ...)` — слушать только loopback.
-- **Триггер закрытия**: до начала боевого пилота.
+### R3. UFW неактивен — средний (раньше «высокий»; ЧАСТИЧНО ЗАКРЫТ 2026-05-22)
+
+✅ Loopback-биндинг закрыт: с релиза 2026-05-22 `server/config.js` по умолчанию использует `BIND_HOST=127.0.0.1`. API в обход nginx теперь недоступен.
+
+🟡 UFW по-прежнему не активирован — defence-in-depth не реализован. Если в будущем добавится другой сервис на `0.0.0.0`, нужен firewall.
+
+- **Рекомендация**: включить ufw как страховочную сетку:
+  ```
+  ufw default deny incoming && ufw allow 22 && ufw allow 80 && ufw allow 443 && ufw enable
+  ```
+- **Триггер закрытия**: до выхода из пилотной фазы.
+
+### R7. Login throttle хранится в памяти — низкий (новый риск 2026-05-22)
+- **Что**: `server/auth.js` хранит счётчик неудачных логинов в in-process `Map<ip, count>`. При рестарте сервиса счётчик обнуляется.
+- **Почему важно**: атакующий может обойти 5/15min throttle, рестартя или дожидаясь рестарта (~5 минут по `Restart=on-failure`).
+- **Чем смягчить**: добавить fail2ban на nginx access log (отслеживание `401` на `/api/auth/login`) — внешний throttle переживает рестарты Node.
+- **Триггер закрытия**: при выходе на > 1 пилотный клиент.
 
 ### R4. Бэкапов хранилища нет — высокий
 - **Что**: `data/store.enc` существует в одном экземпляре на одном диске.
