@@ -27,7 +27,8 @@ function findSettings(store) {
 }
 
 function register(app, deps) {
-  const { auth, loadStore, saveStore } = deps;
+  const { auth, loadStore, saveStore, withStoreLock } = deps;
+  const lock = withStoreLock || (async fn => fn());
 
   app.get('/api/integrations/iiko', auth, (_req, res) => {
     const store = loadStore();
@@ -93,34 +94,40 @@ function register(app, deps) {
   });
 
   app.post('/api/integrations/iiko/sync', auth, async (_req, res) => {
-    const store = loadStore();
-    const s = findSettings(store);
-    if (!s)        return res.status(400).json({ error: 'Not configured' });
-    if (!s.active) return res.status(400).json({ error: 'Integration paused (active=false)' });
+    // See quickresto.js sync handler for explanation of the lock.
+    let status, body;
+    await lock(async () => {
+      const store = loadStore();
+      const s = findSettings(store);
+      if (!s)        { status = 400; body = { error: 'Not configured' }; return; }
+      if (!s.active) { status = 400; body = { error: 'Integration paused (active=false)' }; return; }
 
-    try {
-      const created = s.mode === 'mock'
-        ? mockSync(store, s)
-        : await liveSync(store, s);
-      s.lastSyncAt = Date.now();
-      s.lastSyncStatus = 'ok';
-      s.lastSyncMessage = `Импортировано чеков: ${created.length}`;
-      s.updatedAt = Date.now();
-      saveStore(store);
-      res.json({
-        ok:       true,
-        imported: created.length,
-        total:    created.reduce((a, b) => a + b.amount, 0),
-        items:    created,
-      });
-    } catch (e) {
-      s.lastSyncAt = Date.now();
-      s.lastSyncStatus = 'error';
-      s.lastSyncMessage = e.message;
-      s.updatedAt = Date.now();
-      saveStore(store);
-      res.status(500).json({ error: e.message });
-    }
+      try {
+        const created = s.mode === 'mock'
+          ? mockSync(store, s)
+          : await liveSync(store, s);
+        s.lastSyncAt = Date.now();
+        s.lastSyncStatus = 'ok';
+        s.lastSyncMessage = `Импортировано чеков: ${created.length}`;
+        s.updatedAt = Date.now();
+        saveStore(store);
+        status = 200;
+        body = {
+          ok:       true,
+          imported: created.length,
+          total:    created.reduce((a, b) => a + b.amount, 0),
+          items:    created,
+        };
+      } catch (e) {
+        s.lastSyncAt = Date.now();
+        s.lastSyncStatus = 'error';
+        s.lastSyncMessage = e.message;
+        s.updatedAt = Date.now();
+        saveStore(store);
+        status = 500; body = { error: e.message };
+      }
+    });
+    res.status(status).json(body);
   });
 }
 

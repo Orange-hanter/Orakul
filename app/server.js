@@ -46,6 +46,20 @@ function saveStore(data) {
   fs.writeFileSync(DATA, encrypt(data, PASS), 'utf8');
 }
 
+// Async mutex для последовательности load-modify-save в обработчиках, где
+// между этими шагами есть await (live-плагины, валидация токена в Telegram).
+// В чисто синхронных handler-ах (POST /api/records и т.д.) гонок не бывает —
+// Node.js однопоточный, и весь блок выполняется в одном tick'е event loop.
+let storeMutex = Promise.resolve();
+async function withStoreLock(fn) {
+  const release = storeMutex;
+  let unlock;
+  storeMutex = new Promise(r => { unlock = r; });
+  await release;
+  try { return await fn(); }
+  finally { unlock(); }
+}
+
 // One-shot migration: legacy stock_entry { quantity } → { kind:'inventory', resulting, delta:null, source:'manual' }
 function migrateStockEntries() {
   if (!fs.existsSync(DATA)) return;
@@ -488,8 +502,8 @@ if (getTgToken()) startTelegram();
 
 // ── Plugins ────────────────────────────────────────────────────────────────────
 
-quickresto.register(app, { auth, loadStore, saveStore });
-iiko.register(app,       { auth, loadStore, saveStore });
+quickresto.register(app, { auth, loadStore, saveStore, withStoreLock });
+iiko.register(app,       { auth, loadStore, saveStore, withStoreLock });
 
 // ── Stats ──────────────────────────────────────────────────────────────────────
 
@@ -509,6 +523,11 @@ if (fs.existsSync(BUILD)) {
   app.get('*', (_req, res) => res.sendFile(path.join(BUILD, 'index.html')));
 }
 
-app.listen(PORT, () => {
-  console.log(`\n✅  Orakul Pilot App → http://localhost:${PORT}\n`);
+// По умолчанию слушаем только loopback — клиенты ходят через nginx (порт 80/443).
+// Переопределить можно через BIND_HOST=0.0.0.0 (например, для Docker, где nginx —
+// другой контейнер, а 3001 пробрасывается наружу docker-compose'ом).
+const BIND_HOST = process.env.BIND_HOST || '127.0.0.1';
+
+app.listen(PORT, BIND_HOST, () => {
+  console.log(`\n✅  Orakul Pilot App → http://${BIND_HOST}:${PORT}\n`);
 });
