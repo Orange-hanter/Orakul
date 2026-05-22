@@ -1,0 +1,24 @@
+[Unit]
+Description=Orakul nightly backup of store.enc + audit.jsonl
+After=network.target
+
+[Service]
+Type=oneshot
+User=orakul
+Group=orakul
+# Override через /etc/systemd/system/orakul-backup.service.d/override.conf
+# при изменении дефолтных путей.
+Environment=ORAKUL_DATA_DIR=/opt/orakul/data
+Environment=ORAKUL_BACKUP_DIR=/var/backups/orakul
+Environment=ORAKUL_BACKUP_KEEP=7
+ExecStart=/opt/orakul/ops/backup-store.sh
+
+# Безопасность
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/backups/orakul
+
+[Install]
+WantedBy=multi-user.target

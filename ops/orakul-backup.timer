@@ -1,0 +1,13 @@
+[Unit]
+Description=Run Orakul backup nightly at 03:30 local time
+
+[Timer]
+# 03:30 каждый день. RandomizedDelaySec разносит запуски на минуту-другую,
+# если на той же машине крутятся другие orakul-системы.
+OnCalendar=*-*-* 03:30:00
+RandomizedDelaySec=120
+Persistent=true
+Unit=orakul-backup.service
+
+[Install]
+WantedBy=timers.target

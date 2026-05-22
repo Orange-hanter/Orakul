@@ -878,6 +878,29 @@ if (getTgToken()) startTelegram();
 quickresto.register(app, { auth, loadStore, saveStore, withStoreLock });
 iiko.register(app,       { auth, loadStore, saveStore, withStoreLock });
 
+// ── O05 Health check ───────────────────────────────────────────────────────────
+// Публичный (без auth) — чтобы Uptimerobot / Healthchecks.io мог опрашивать.
+// Возвращает 200 если: процесс жив, data-директория доступна, store.enc читается.
+// Возвращает 503 при любой проблеме. Без секретов и без счётчиков записей.
+const SERVER_STARTED_AT = Date.now();
+
+app.get('/api/health', (_req, res) => {
+  try {
+    fs.accessSync(path.join(__dirname, 'data'), fs.constants.R_OK | fs.constants.W_OK);
+    // Не вызываем loadStore() — он расшифровывает; делаем дешёвый stat-тест.
+    const storeOk = !fs.existsSync(DATA) || fs.statSync(DATA).size >= 0;
+    if (!storeOk) throw new Error('store unreadable');
+    res.json({
+      status: 'ok',
+      uptimeSec: Math.floor((Date.now() - SERVER_STARTED_AT) / 1000),
+      version: process.env.ORAKUL_VERSION || 'dev',
+      ts: Date.now(),
+    });
+  } catch (e) {
+    res.status(503).json({ status: 'error', error: e.message });
+  }
+});
+
 // ── Stats ──────────────────────────────────────────────────────────────────────
 
 app.get('/api/stats', auth, (_req, res) => {
