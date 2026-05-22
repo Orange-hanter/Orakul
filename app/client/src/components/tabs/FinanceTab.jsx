@@ -6,6 +6,7 @@ import {
 } from '../../utils/pnl.js';
 import SettingsModal, { CATEGORY_BY_ID } from './finance/SettingsModal.jsx';
 import CompareView from './finance/CompareView.jsx';
+import ABCMenuCard from './finance/ABCMenuCard.jsx';
 
 const CURRENCY = 'BYN';
 const DAY_MS   = 86_400_000;
@@ -279,6 +280,14 @@ export default function FinanceTab({ records, allRecords = [], venues = [], curr
               <div style={{ marginTop: 16, padding: 12, background: '#fef9c3', borderRadius: 8, fontSize: 12, color: '#854d0e' }}>
                 💡 Себестоимость считается из заявок в статусе «Принята» в выбранном периоде. Постоянные расходы — пропорционально дням периода (30 дней = месячная сумма).
               </div>
+
+              <ABCMenuCard
+                dishes={records.filter(r => r.type === 'dish')}
+                sales={records.filter(r => r.type === 'dish_sale')}
+                supplierItems={records.filter(r => r.type === 'supplier_item')}
+                suppliers={records.filter(r => r.type === 'supplier')}
+                period={period}
+              />
             </>
           )
         )}
