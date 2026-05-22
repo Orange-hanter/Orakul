@@ -223,6 +223,7 @@ app.put('/api/records/:id', auth, (req, res) => {
   const next = { ...prev, ...req.body, updatedAt: Date.now() };
   store.records[i] = next;
 
+  let priceChange = null;
   if (prev.type === 'supplier_item' &&
       typeof next.price === 'number' &&
       prev.price !== next.price) {
@@ -236,10 +237,17 @@ app.put('/api/records/:id', auth, (req, res) => {
       createdAt: Date.now(),
       updatedAt: Date.now(),
     });
+    priceChange = { item: next, oldPrice: prev.price, newPrice: next.price };
   }
 
   saveStore(store);
   res.json(next);
+
+  // F04 + F06: после ответа клиенту проверяем алёрты на повышение цены.
+  // Fire-and-forget — не блокируем PUT-handler.
+  if (priceChange) {
+    queuePriceAlerts(loadStore(), priceChange).catch(e => console.error('TG price alerts:', e.message));
+  }
 });
 
 app.delete('/api/records/:id', auth, (req, res) => {
@@ -388,6 +396,156 @@ function buildDigestText(venueId = null) {
   return msg;
 }
 
+// ── F04 + F06: алёрты при изменении цен поставщика ─────────────────────────
+
+// Порог по росту цены: ≥ 5% или абсолютно ≥ 1 BYN — что меньше.
+function isPriceJumpSignificant(oldPrice, newPrice) {
+  if (newPrice <= oldPrice) return false;
+  const pct = (newPrice - oldPrice) / oldPrice * 100;
+  const abs = newPrice - oldPrice;
+  return pct >= 5 || abs >= 1;
+}
+
+// Найти самую дешёвую цену для productId среди active поставщиков.
+// При расчёте «новой» цены передаём skipItemId/replacementPrice — чтобы
+// учесть только что обновлённый item с новой ценой ещё до сохранения store.
+function cheapestPriceServer(store, productId, replacement) {
+  const suppliers = new Map(
+    store.records.filter(r => r.type === 'supplier').map(s => [s.id, s])
+  );
+  const items = store.records.filter(r => r.type === 'supplier_item' && r.productId === productId);
+  const prices = items
+    .filter(i => suppliers.get(i.supplierId)?.status !== 'paused')
+    .map(i => i.id === replacement?.itemId ? replacement.price : Number(i.price))
+    .filter(p => Number.isFinite(p) && p >= 0);
+  return prices.length ? Math.min(...prices) : null;
+}
+
+// Себестоимость блюда по рецепту + текущим (или гипотетическим) ценам.
+function dishCostServer(store, dish, replacement) {
+  if (!dish || !Array.isArray(dish.ingredients) || dish.ingredients.length === 0) return null;
+  let total = 0;
+  for (const ing of dish.ingredients) {
+    if (!ing.productId || !ing.quantity) continue;
+    const p = cheapestPriceServer(store, ing.productId, replacement);
+    if (p === null) return null; // не хватает данных
+    total += ing.quantity * p;
+  }
+  return total;
+}
+
+async function queuePriceAlerts(store, change) {
+  if (!getTgToken()) return;
+  const { item, oldPrice, newPrice } = change;
+  if (!isPriceJumpSignificant(oldPrice, newPrice)) return;
+
+  const chats = store.records.filter(r => r.type === 'telegram_chat');
+  if (chats.length === 0) return;
+
+  const supplier = store.records.find(r => r.type === 'supplier' && r.id === item.supplierId);
+  const supplierName = supplier?.name || 'поставщик';
+  const pct = ((newPrice - oldPrice) / oldPrice * 100).toFixed(1).replace('.', '\\.');
+
+  // F06 — raw price increase
+  const rawMsg =
+    `📈 *Цена выросла*\n` +
+    `${escapeMd(item.itemName)} у ${escapeMd(supplierName)}\n` +
+    `${oldPrice} → *${newPrice}* BYN \\(\\+${pct}%\\)`;
+
+  // F04 — margin impact on dishes
+  // Найти все блюда, использующие productId этого item-а.
+  const affectedDishes = [];
+  if (item.productId) {
+    const dishes = store.records.filter(r => r.type === 'dish' && r.active !== false);
+    for (const d of dishes) {
+      if (!d.ingredients?.some(i => i.productId === item.productId)) continue;
+      const sellPrice = Number(d.sellPrice);
+      if (!Number.isFinite(sellPrice) || sellPrice <= 0) continue;
+
+      const oldCost = dishCostServer(store, d, { itemId: item.id, price: oldPrice });
+      const newCost = dishCostServer(store, d, { itemId: item.id, price: newPrice });
+      if (oldCost === null || newCost === null) continue;
+      const oldFC = oldCost / sellPrice * 100;
+      const newFC = newCost / sellPrice * 100;
+      const fcJump = newFC - oldFC;
+      if (fcJump < 1.5) continue; // меньше 1.5 п.п. — игнорируем (шум)
+
+      affectedDishes.push({ d, oldFC, newFC, fcJump });
+    }
+  }
+
+  // Отправка
+  const msgs = [rawMsg];
+  if (affectedDishes.length > 0) {
+    let m = `🍽 *Маржа упала на блюдах*\n` +
+            `Из-за роста цены: ${escapeMd(item.itemName)}\n`;
+    for (const a of affectedDishes.slice(0, 8)) {
+      const fcOldS = a.oldFC.toFixed(1).replace('.', '\\.');
+      const fcNewS = a.newFC.toFixed(1).replace('.', '\\.');
+      m += `• ${escapeMd(a.d.name)}: FC ${fcOldS}% → *${fcNewS}%*\n`;
+    }
+    if (affectedDishes.length > 8) m += `…и ещё ${affectedDishes.length - 8}\n`;
+    msgs.push(m.trimEnd());
+  }
+
+  for (const chat of chats) {
+    for (const text of msgs) {
+      try {
+        await tgApi('sendMessage', { chat_id: chat.chatId, text, parse_mode: 'MarkdownV2' });
+      } catch (e) {
+        console.error(`TG: failed to send alert to ${chat.chatId}:`, e.message);
+      }
+    }
+  }
+}
+
+// F05: P&L за вчера — отдельный блок утреннего дайджеста.
+// Возвращает MarkdownV2-строку или null если за вчера нет revenue (нет смысла).
+function buildPnLDigest(venueId) {
+  if (!venueId) return null;
+  const store = loadStore();
+  const yest = new Date();
+  yest.setDate(yest.getDate() - 1);
+  const dateStr = yest.toISOString().slice(0, 10);
+  const dayStart = new Date(yest); dayStart.setHours(0, 0, 0, 0);
+  const dayEnd   = new Date(yest); dayEnd.setHours(23, 59, 59, 999);
+
+  const venueRecs = store.records.filter(r => r.venueId === venueId);
+  const revenue = venueRecs
+    .filter(r => r.type === 'revenue_entry' && r.date === dateStr)
+    .reduce((s, r) => s + (Number(r.amount) || 0), 0);
+
+  if (revenue <= 0) return null;
+
+  const variableCosts = venueRecs
+    .filter(r => r.type === 'order' && r.status === 'received')
+    .filter(o => {
+      const ts = o.receivedAt || o.updatedAt || o.createdAt;
+      return ts >= dayStart.getTime() && ts <= dayEnd.getTime();
+    })
+    .reduce((s, o) => s + (Number(o.totalAmount) || 0), 0);
+
+  // Прората постоянных расходов на один день (месяц = 30 дней per spec 10).
+  const fixedPerDay = venueRecs
+    .filter(r => r.type === 'fixed_expense')
+    .filter(e => !e.endDate || e.endDate >= dateStr)
+    .filter(e => !e.startDate || e.startDate <= dateStr)
+    .reduce((s, e) => s + (Number(e.amount) || 0) / 30, 0);
+
+  const ebitda  = revenue - variableCosts - fixedPerDay;
+  const fcPct   = variableCosts / revenue * 100;
+  const ebitPct = ebitda / revenue * 100;
+  const dateRu  = yest.toLocaleDateString('ru', { day: 'numeric', month: 'long' });
+
+  let msg = `📊 *P&L за ${escapeMd(dateRu)}*\n`;
+  msg += `💰 Выручка: *${Math.round(revenue)}* BYN\n`;
+  msg += `🍳 Закупки: ${Math.round(variableCosts)} BYN \\(FC ${fcPct.toFixed(1).replace('.', '\\.')}%\\)\n`;
+  msg += `🏠 Постоянные: ~${Math.round(fixedPerDay)} BYN\n`;
+  const ebitdaIcon = ebitda > 0 ? '✅' : '🔴';
+  msg += `${ebitdaIcon} EBITDA: *${Math.round(ebitda)}* BYN \\(${ebitPct.toFixed(1).replace('.', '\\.')}%\\)`;
+  return msg;
+}
+
 async function sendDigestToAll() {
   if (!getTgToken()) return;
   const store = loadStore();
@@ -396,7 +554,10 @@ async function sendDigestToAll() {
   for (const chat of chats) {
     try {
       // Каждому чату — свой дайджест по его venueId (см. DL-2026-010).
-      const text = buildDigestText(chat.venueId);
+      const stockMsg = buildDigestText(chat.venueId);
+      const pnlMsg   = buildPnLDigest(chat.venueId);
+      // Склеиваем оба блока одним сообщением, если P&L есть
+      const text = pnlMsg ? `${stockMsg}\n\n${pnlMsg}` : stockMsg;
       await tgApi('sendMessage', { chat_id: chat.chatId, text, parse_mode: 'MarkdownV2' });
     } catch (e) {
       console.error(`TG: failed to send to ${chat.chatId}:`, e.message);
