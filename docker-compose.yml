@@ -32,6 +32,10 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3001
+      # Default server bind is 127.0.0.1 (см. server.js S08 — для прод-сервера
+      # за nginx). В Docker нужен 0.0.0.0, иначе port-mapping не работает —
+      # Docker форвардит на network-интерфейс контейнера, не на loopback.
+      - BIND_HOST=0.0.0.0
     volumes:
       - ./app/data:/app/data
     ports:
