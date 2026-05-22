@@ -19,7 +19,7 @@
  * Для чистого старта используйте /api/export → удалите store.enc → рестарт.
  */
 
-require('dotenv').config();
+import 'dotenv/config';
 
 const BASE_URL = process.argv.includes('--url')
   ? process.argv[process.argv.indexOf('--url') + 1]

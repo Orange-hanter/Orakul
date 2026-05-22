@@ -1,6 +1,7 @@
 {
   "name": "orakul-pilot-app",
   "version": "1.0.0",
+  "type": "module",
   "description": "Tablet app for Orakul pilot data collection",
   "scripts": {
     "start": "node server.js",
