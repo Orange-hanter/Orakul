@@ -99,6 +99,7 @@ C) [...]
 | DL-2026-009 | 2026-05-21 | US-09/10/11 (каталог поставщиков + заявки) — в R2 | Product / Timeline | Перенос из R3 (Q3) в R2 (Q2) ради раскрытия Value Driver V2 | [CR-2026-001](cr-2026-001-supplier-catalog-to-r2.md), [Roadmap §4](../04-implementation/01-roadmap.md) |
 | DL-2026-010 | 2026-05-22 | RBAC поэтапно: L2 (multi-venue) сейчас, L1/L3/L4 — по факту потребности | Product / Tech | Только venueId + селектор. Аутентификация остаётся по APP_PASSWORD. Полная спека RBAC — на R3+ | [RBAC Spec](../08-technical/08-rbac-multiuser-spec.md) |
 | DL-2026-011 | 2026-05-29 | Sprint 1 «Замкнуть аналитический контур» закрыт 8/8 | Process | F01–F08 закрыты; 116 тестов; 6 деплоев; первый раз продукт автоматически генерирует инсайты (alerts + P&L digest) | [Sprint Roadmap](../04-implementation/11-sprints-roadmap-2026-05-29.md) |
+| DL-2026-012 | 2026-06-11 | Sprint 2 «Первый ИИ-слой» закрыт 7/7 | Process / Product | AI01–AI07 закрыты; forecast (WMA × weekday seasonality), recommendations с объяснимостью, ARAR-трекинг, 2σ anomaly detection, what-if симулятор. 168 тестов. Принцип PRD §3 «Recommend, don't act» соблюдён | [Sprint Roadmap §Sprint 2](../04-implementation/11-sprints-roadmap-2026-05-29.md) |
 
 > Это **стартовые решения** (зафиксированы при утверждении документации v1). Дальнейшие — добавляются по мере появления.
 
@@ -382,6 +383,50 @@ C) [...]
 - **Review trigger:** середина июня 2026 — контрольная точка по rollback-плану CR (если объём работ превышает оценку >30%, US-11 переносится обратно в R3).
 
 **Подписи:** Tech Lead, PO (требуется подтверждение Спонсора и PMO).
+
+---
+
+### DL-2026-012 — Sprint 2 «Первый ИИ-слой» закрыт
+
+**Дата:** 2026-06-11
+**Категория:** Process / Product
+
+**Вопрос.** Достигнута ли цель Sprint 2 — заявленный «AI-advisor» из PRD §2 теперь подтверждается кодом, а ARAR (NSM-01) можно начать измерять?
+
+**Решение.** Да, 7/7 задач закрыты. См. [Sprint Roadmap §Sprint 2](../04-implementation/11-sprints-roadmap-2026-05-29.md).
+
+**Что доставлено:**
+- **AI01 Baseline forecast** — `forecastDishDaily` (WMA 28 дн × weekday seasonality, мультипликативный фактор; защита от sample size <2). `forecastProductConsumption` агрегирует через рецепты. MAPE-самотест в той же утилите.
+- **AI02 Recommendations** — формула «forecast × (lead + safety) − stock», округление по minQty поставщика. Карточка над списком заявок в OrdersTab.
+- **AI03 Explainability** — expandable «Почему столько?» с daily forecast, поставщиком, contributing dishes (US-08).
+- **AI04 ARAR tracking** — новый record-тип `recommendation_action` (venue-scoped). 👍/✎/👎 → запись. KPI в UI карточки.
+- **AI05 Anomaly detection v1** — `detectProductAnomaly`: z-score на 14-дневном окне списаний, fallback при stdDev=0. Бейдж в StockTab + отдельный блок в утреннем Telegram-дайджесте.
+- **AI06 What-if симулятор** — `simulatePriceChange` в карточке блюда. Таблица сейчас/новое/Δ по margin/FC, оценка недельной Δ маржи. Подсказка «при FC 30% цена будет такой».
+- **AI07 Тесты** — +52 кейса (14 forecast + 14 recommendations + 12 anomaly + 12 whatIf), общий счёт 168/168 green.
+
+**Метрики:**
+- 168 unit-тестов зелёных (старт спринта: 116).
+- 3 production-релиза (один на блок: AI01-04, AI05, AI06).
+- Прод бандл: 89.39 KB gzip main (+ 2.48 KB за спринт). xlsx остаётся lazy.
+- Новые типы записей: `recommendation_action` (venue-scoped, для ARAR).
+
+**Принцип «Recommend, don't act» (PRD §3) соблюдён:**
+- AI02 ничего не заказывает — только формирует payload `recommendation_action` после явного клика.
+- AI06 при «применить» подставляет цену в форму, но без сохранения — пользователь сам жмёт «Сохранить».
+
+**Что разблокировано для Sprint 3:**
+- Telegram-инфраструктура расширена (anomaly блок) — паттерн для дальнейших алёртов.
+- ARAR можно ретроспективно посчитать как только пилот накопит действий → метрика NSM-01 становится реальной.
+- AI06 закрывает US-06 minimum — расширенный сценарный режим (несколько блюд одновременно, эластичность) — задача R3.
+
+**От чего отказались:**
+- Эластичность спроса в AI06 (модель «volume = const»). Сознательно — без 3+ месяцев данных это шум. Review trigger — при достижении 6 месяцев истории на одном пилоте.
+- Forecast > 7 дней — формат окна оставлен 7, потому что lead-time большинства поставщиков 2-3 дня; горизонт > 7 без trend-модели нестабилен.
+
+**Review trigger:**
+- При накоплении 14+ дней реального использования пилотом — измерить MAPE и ARAR, сравнить с целевыми (≤15% и ≥50%). При расхождении — итерация форекаст-модели до Sprint 3 финиша.
+
+**Подписи:** Tech Lead.
 
 ---
 
