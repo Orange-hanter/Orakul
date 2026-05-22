@@ -24,7 +24,7 @@ const VENUE_SCOPED_TYPES = new Set([
   'product',
   'stop',
   'stock_entry',
-  'menu_item',
+  'dish',
   'order',
   'revenue_entry',
   'fixed_expense',
