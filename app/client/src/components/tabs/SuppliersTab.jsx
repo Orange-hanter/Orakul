@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import Modal from '../Modal.jsx';
 import ImportPriceListModal from '../ImportPriceListModal.jsx';
+import { findAnalogs } from '../../utils/fuzzyMatch.js';
 
 const CURRENCY = 'BYN';
 
@@ -225,22 +226,26 @@ function ItemDetailsModal({ item, supplier, supplierMap, history, analogs, onClo
       <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 8, color: 'var(--neutral)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
         Аналоги у других поставщиков
       </h3>
-      {!item.productId ? (
+      {analogs.length === 0 ? (
         <div style={{ fontSize: 13, color: 'var(--neutral)', marginBottom: 20 }}>
-          Поиск аналогов недоступен — позиция не привязана к товару склада.
-        </div>
-      ) : analogs.length === 0 ? (
-        <div style={{ fontSize: 13, color: 'var(--neutral)', marginBottom: 20 }}>
-          Других поставщиков на эту позицию пока нет.
+          {item.productId
+            ? 'Других поставщиков на эту позицию пока нет.'
+            : 'Похожих позиций не нашлось. Привяжите к товару склада, чтобы расширить поиск.'}
         </div>
       ) : (
         <div style={{ marginBottom: 20 }}>
           {analogs.map(a => {
             const diff = trendPct(a.price, item.price);
+            const matchBadge = a._matchExact
+              ? <span className="badge badge-positive" style={{ fontSize: 10 }}>🎯 точное</span>
+              : <span className="badge badge-neutral"  style={{ fontSize: 10 }}>~ {Math.round(a._matchSimilarity * 100)}%</span>;
             return (
-              <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #f1f5f9' }}>
+              <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #f1f5f9', gap: 8 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600 }}>{supplierMap.get(a.supplierId)?.name || '—'}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 14, fontWeight: 600 }}>{supplierMap.get(a.supplierId)?.name || '—'}</span>
+                    {matchBadge}
+                  </div>
                   <div style={{ fontSize: 12, color: 'var(--neutral)' }}>
                     {a.itemName} · {fmtPrice(a.price, a.currency)} / {a.unit}
                   </div>
@@ -318,12 +323,18 @@ export default function SuppliersTab({ records, onCreate, onUpdate, onDelete, sh
     );
   }, [suppliers, search]);
 
+  // Аналоги: сначала точные (productId), затем fuzzy по названию.
+  // Возвращаем supplier_item с добавленными _matchSimilarity / _matchExact.
   function itemAnalogs(item) {
-    if (!item.productId) return [];
-    return items
-      .filter(i => i.id !== item.id && i.productId === item.productId)
-      .filter(i => supplierMap.get(i.supplierId)?.status !== 'paused')
-      .sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
+    const candidatePool = items.filter(i =>
+      supplierMap.get(i.supplierId)?.status !== 'paused'
+    );
+    return findAnalogs(item, candidatePool, { threshold: 0.3, sameUnit: true })
+      .map(x => ({
+        ...x.item,
+        _matchSimilarity: x.similarity,
+        _matchExact:      x.exact,
+      }));
   }
 
   function itemHistory(itemId) {
@@ -420,7 +431,11 @@ export default function SuppliersTab({ records, onCreate, onUpdate, onDelete, sh
               .map(it => {
                 const trend  = itemTrend(it);
                 const analog = itemAnalogs(it);
-                const cheaper = analog.find(a => a.price < it.price);
+                // Inline-подсказка — только высоко-уверенные совпадения, чтобы
+                // не вводить пользователя в заблуждение ложным «дешевле».
+                const cheaper = analog.find(a =>
+                  a.price < it.price && (a._matchExact || a._matchSimilarity >= 0.7)
+                );
                 return (
                   <div key={it.id} className="card" onClick={() => setOpenItemId(it.id)} style={{ cursor: 'pointer' }}>
                     <div className="card-header">
