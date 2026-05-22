@@ -5,6 +5,8 @@ import AlphabetScroller, { firstLetter, sortLetters } from '../AlphabetScroller.
 import { computeDishEconomics } from '../../utils/dishCost.js';
 import { foodCostColor } from '../../utils/pnl.js';
 import { nplural } from '../../utils/plural.js';
+import { toIsoDate, salesInPeriod } from '../../utils/dishSales.js';
+import DishSalesModal from '../DishSalesModal.jsx';
 
 function fmtMoney(n) {
   if (n === null || n === undefined || !Number.isFinite(n)) return '—';
@@ -19,6 +21,7 @@ export default function MenuTab({ records, loading, onCreate, onUpdate, onDelete
   const [form,         setForm]         = useState(EMPTY);
   const [saving,       setSaving]       = useState(false);
   const [showPicker,   setShowPicker]   = useState(false);
+  const [salesOpen,    setSalesOpen]    = useState(false);
 
   const sectionRefs = useRef({});
 
@@ -44,6 +47,16 @@ export default function MenuTab({ records, loading, onCreate, onUpdate, onDelete
     dishes.forEach(d => m.set(d.id, computeDishEconomics(d, supplierItems, suppliers)));
     return m;
   }, [dishes, supplierItems, suppliers]);
+
+  // Продажи блюд — для бейджа «сегодня продано N»
+  const sales = useMemo(() => records.filter(r => r.type === 'dish_sale'), [records]);
+  const today = toIsoDate(new Date());
+  const todaySalesByDish = useMemo(() => {
+    const m = new Map();
+    dishes.forEach(d => m.set(d.id, salesInPeriod(sales, d.id, today, today)));
+    return m;
+  }, [sales, dishes, today]);
+  const todayTotal = [...todaySalesByDish.values()].reduce((a, b) => a + b, 0);
 
   const grouped = useMemo(() => {
     const out = {};
@@ -141,6 +154,7 @@ export default function MenuTab({ records, loading, onCreate, onUpdate, onDelete
     const econ = economicsByDish.get(d.id);
     const fcColor = econ?.foodCostPct !== null ? foodCostColor(econ?.foodCostPct) : null;
     const hasMissing = econ?.missing?.length > 0;
+    const soldToday = todaySalesByDish.get(d.id) || 0;
     return (
       <div className={`dish-row${isStopped ? ' stopped' : ''}`} onClick={() => openEdit(d)}>
         <div className="dish-row-name" style={{ color: d.active ? 'inherit' : 'var(--neutral)', textDecoration: d.active ? 'none' : 'line-through' }}>
@@ -165,6 +179,11 @@ export default function MenuTab({ records, loading, onCreate, onUpdate, onDelete
               ⚠ {econ.missing.length}
             </span>
           )}
+          {soldToday > 0 && (
+            <span className="badge badge-in_progress" style={{ fontSize: 11 }} title={`Сегодня продано: ${soldToday} порц.`}>
+              🍽 {soldToday}
+            </span>
+          )}
           {isStopped && <span className="badge badge-negative" style={{ fontSize: 11 }}>🚫 Стоп</span>}
           {!d.active && <span className="badge badge-neutral" style={{ fontSize: 11 }}>Off</span>}
         </div>
@@ -182,6 +201,17 @@ export default function MenuTab({ records, loading, onCreate, onUpdate, onDelete
         <span className="section-title">Меню</span>
         <span className="section-count">{nplural(dishes.length, ['блюдо', 'блюда', 'блюд'])}</span>
       </div>
+
+      {dishes.length > 0 && (
+        <button
+          className="btn btn-ghost btn-block"
+          style={{ marginBottom: 12, height: 44, fontSize: 14 }}
+          onClick={() => setSalesOpen(true)}
+        >
+          📋 Продажи дня
+          {todayTotal > 0 && <span style={{ marginLeft: 8, color: 'var(--accent)', fontWeight: 700 }}>· {todayTotal} порц.</span>}
+        </button>
+      )}
 
       {dishes.length === 0 ? (
         <div className="empty">
@@ -342,6 +372,17 @@ export default function MenuTab({ records, loading, onCreate, onUpdate, onDelete
           excludeIds={form.ingredients.map(i => i.productId)}
           onAdd={ing => setForm(f => ({ ...f, ingredients: [...(f.ingredients || []), ing] }))}
           onClose={() => setShowPicker(false)}
+        />
+      )}
+
+      {salesOpen && (
+        <DishSalesModal
+          dishes={dishes}
+          sales={sales}
+          onClose={() => setSalesOpen(false)}
+          onCreate={onCreate}
+          onUpdate={onUpdate}
+          showToast={showToast}
         />
       )}
     </>
