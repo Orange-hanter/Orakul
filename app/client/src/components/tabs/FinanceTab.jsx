@@ -1,5 +1,11 @@
 import { useState, useMemo } from 'react';
 import Modal from '../Modal.jsx';
+import {
+  computeVenuePnL,
+  fixedExpenseInPeriod,
+  foodCostColor,
+  ebitdaColor,
+} from '../../utils/pnl.js';
 
 const CURRENCY = 'BYN';
 const DAY_MS   = 86_400_000;
@@ -78,18 +84,8 @@ function fmtPct(n) {
   return `${n.toFixed(1)}%`;
 }
 
-// Считаем долю расхода, попадающую в период.
-// Помесячная сумма пропорционально дням пересечения.
-function fixedExpenseInPeriod(expense, start, end) {
-  const expStart = expense.startDate ? new Date(expense.startDate) : new Date(0);
-  const expEnd   = expense.endDate   ? new Date(expense.endDate)   : new Date('2099-12-31');
-  const periodStart = start > expStart ? start : expStart;
-  const periodEnd   = end   < expEnd   ? end   : expEnd;
-  if (periodEnd < periodStart) return 0;
-  const days = (periodEnd.getTime() - periodStart.getTime()) / DAY_MS + 1;
-  // 30 дней — стандартный месяц для пропорции (для месяцев с 28/31 это даёт ±5%, для MVP приемлемо)
-  return (Number(expense.amount) || 0) * (days / 30);
-}
+// fixedExpenseInPeriod, computeVenuePnL, foodCostColor, ebitdaColor вынесены
+// в src/utils/pnl.js для покрытия unit-тестами (см. tests/pnl.test.mjs).
 
 // ── Settings modal (revenue list + expenses list) ────────────────────────────
 
@@ -361,64 +357,7 @@ function Row({ label, value, indent = 0, bold = false, separator = false, accent
   );
 }
 
-// ── Pure P&L computation (используется и для одной точки, и для сравнения) ──
-
-function computeVenuePnL(records, period) {
-  const start = period.start.getTime();
-  const end   = period.end.getTime();
-
-  const revenue = records
-    .filter(r => r.type === 'revenue_entry')
-    .filter(r => {
-      const d = new Date(r.date).getTime();
-      return d >= start && d <= end;
-    })
-    .reduce((s, r) => s + (Number(r.amount) || 0), 0);
-
-  const variableCosts = records
-    .filter(r => r.type === 'order' && r.status === 'received')
-    .filter(o => {
-      const ts = o.receivedAt || o.updatedAt || o.createdAt;
-      return ts >= start && ts <= end;
-    })
-    .reduce((s, o) => s + (Number(o.totalAmount) || 0), 0);
-
-  const fixedByCategoryMap = {};
-  records.filter(r => r.type === 'fixed_expense').forEach(e => {
-    const amount = fixedExpenseInPeriod(e, period.start, period.end);
-    if (amount <= 0) return;
-    const catId = e.category || 'other';
-    if (!fixedByCategoryMap[catId]) fixedByCategoryMap[catId] = { id: catId, total: 0 };
-    fixedByCategoryMap[catId].total += amount;
-  });
-  const fixedByCategory = Object.values(fixedByCategoryMap).sort((a, b) => b.total - a.total);
-  const fixedTotal = fixedByCategory.reduce((s, c) => s + c.total, 0);
-
-  const grossProfit    = revenue - variableCosts;
-  const ebitda         = grossProfit - fixedTotal;
-  const foodCostPct    = revenue > 0 ? (variableCosts / revenue) * 100 : null;
-  const grossMarginPct = revenue > 0 ? (grossProfit   / revenue) * 100 : null;
-  const ebitdaPct      = revenue > 0 ? (ebitda        / revenue) * 100 : null;
-
-  return {
-    revenue, variableCosts, fixedTotal, fixedByCategory,
-    grossProfit, ebitda,
-    foodCostPct, grossMarginPct, ebitdaPct,
-  };
-}
-
-function foodCostColor(pct) {
-  if (pct === null || pct === undefined) return null;
-  if (pct > 38) return 'var(--danger)';
-  if (pct > 32) return '#b45309';
-  return 'var(--success)';
-}
-
-function ebitdaColor(v) {
-  if (v > 0) return 'var(--success)';
-  if (v < 0) return 'var(--danger)';
-  return null;
-}
+// computeVenuePnL / foodCostColor / ebitdaColor → src/utils/pnl.js (для тестов)
 
 // ── Main tab ─────────────────────────────────────────────────────────────────
 

@@ -8,7 +8,8 @@
     "dev:client": "cd client && npm run dev",
     "build": "cd client && npm run build",
     "setup": "npm install && cd client && npm install",
-    "seed-demo": "node seed-demo.js"
+    "seed-demo": "node seed-demo.js",
+    "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
     "cors": "^2.8.5",
