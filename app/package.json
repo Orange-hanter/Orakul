@@ -7,7 +7,8 @@
     "dev:server": "node --watch server.js",
     "dev:client": "cd client && npm run dev",
     "build": "cd client && npm run build",
-    "setup": "npm install && cd client && npm install"
+    "setup": "npm install && cd client && npm install",
+    "seed-demo": "node seed-demo.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

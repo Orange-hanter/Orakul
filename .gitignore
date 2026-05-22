@@ -2,3 +2,4 @@
 /*.png
 data/*
 .DS_Store
+.githooks/post-commit.log

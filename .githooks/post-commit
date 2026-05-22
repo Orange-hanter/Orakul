@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# Orakul local CI/CD: rebuild & restart the app container after each commit.
+#
+# - Only triggers when files under app/ or compose changed (skip docs-only commits).
+# - Runs in the background so `git commit` returns instantly.
+# - Logs to .githooks/post-commit.log — `tail -f` to watch.
+# - Also ensures the shared dev-proxy is up.
+
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+LOG_FILE="$REPO_ROOT/.githooks/post-commit.log"
+PROXY_DIR="${DEV_PROXY_DIR:-$HOME/Git/dev-proxy}"
+
+REBUILD_PATHS_RE='^(app/|docker-compose\.yml$)'
+
+CHANGED="$(git diff-tree --no-commit-id --name-only -r HEAD)"
+if ! echo "$CHANGED" | grep -qE "$REBUILD_PATHS_RE"; then
+    echo "[post-commit $(date +%H:%M:%S)] no image-affecting changes — skipping rebuild" >> "$LOG_FILE"
+    exit 0
+fi
+
+# Make sure docker is reachable; if not, just warn and exit (don't break the commit).
+if ! command -v docker >/dev/null 2>&1; then
+    echo "[post-commit $(date +%H:%M:%S)] docker not installed — skipping" >> "$LOG_FILE"
+    exit 0
+fi
+if ! docker info >/dev/null 2>&1; then
+    echo "[post-commit $(date +%H:%M:%S)] docker daemon not running — skipping" >> "$LOG_FILE"
+    exit 0
+fi
+
+COMMIT_SHA="$(git rev-parse --short HEAD)"
+COMMIT_MSG="$(git log -1 --pretty=%s)"
+
+# Detached rebuild so the commit returns immediately.
+(
+    cd "$REPO_ROOT"
+    {
+        echo ""
+        echo "──────────────────────────────────────────────────"
+        echo "[post-commit $(date +%Y-%m-%d\ %H:%M:%S)] commit $COMMIT_SHA: $COMMIT_MSG"
+        echo "──────────────────────────────────────────────────"
+
+        # Ensure shared proxy network exists; bring it up if not.
+        if ! docker network inspect dev-proxy-net >/dev/null 2>&1; then
+            if [ -f "$PROXY_DIR/docker-compose.yml" ]; then
+                echo "[post-commit] dev-proxy-net missing — starting shared proxy from $PROXY_DIR"
+                (cd "$PROXY_DIR" && docker compose up -d)
+            else
+                echo "[post-commit] WARNING: dev-proxy-net missing and $PROXY_DIR/docker-compose.yml not found"
+                echo "[post-commit] orakul-app will start, but http://orakul.localhost will not resolve."
+            fi
+        fi
+
+        DOCKER_BUILDKIT=1 docker compose up -d --build app
+        echo "[post-commit $(date +%H:%M:%S)] ✅ rebuild complete — http://orakul.localhost"
+    } >> "$LOG_FILE" 2>&1
+) &
+
+echo "🐳 Orakul: rebuilding in background (tail -f .githooks/post-commit.log)"

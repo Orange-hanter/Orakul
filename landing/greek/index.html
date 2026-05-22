@@ -1,0 +1,842 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Orakul · Прорицание прибыли. Утро за утром.</title>
+<meta name="description" content="Orakul — ИИ-советник для сетевого общепита поверх Kiepper. Прозрачные прорицания, объяснимые до последней строки. До 2,3 млн Br экономии в год на сети 10 точек." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- ====================================================================
+     SVG ENGRAVING LIBRARY — antique book-illustration line art
+     Stroke-based, cross-hatched, stippled. No gradients, no fills.
+     ==================================================================== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+
+    <!-- HERO: Oracle Eye with Sun Rays — large detailed engraving -->
+    <symbol id="eng-hero-eye" viewBox="0 0 520 520">
+      <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+
+        <!-- decorative ring of dots -->
+        <g fill="currentColor" stroke="none">
+          <circle cx="260" cy="60" r="1.6"/><circle cx="320" cy="68" r="1.4"/>
+          <circle cx="380" cy="86" r="1.4"/><circle cx="430" cy="120" r="1.4"/>
+          <circle cx="468" cy="166" r="1.4"/><circle cx="492" cy="220" r="1.4"/>
+          <circle cx="492" cy="300" r="1.4"/><circle cx="468" cy="354" r="1.4"/>
+          <circle cx="430" cy="400" r="1.4"/><circle cx="380" cy="434" r="1.4"/>
+          <circle cx="320" cy="452" r="1.4"/><circle cx="260" cy="460" r="1.6"/>
+          <circle cx="200" cy="452" r="1.4"/><circle cx="140" cy="434" r="1.4"/>
+          <circle cx="90" cy="400" r="1.4"/><circle cx="52" cy="354" r="1.4"/>
+          <circle cx="28" cy="300" r="1.4"/><circle cx="28" cy="220" r="1.4"/>
+          <circle cx="52" cy="166" r="1.4"/><circle cx="90" cy="120" r="1.4"/>
+          <circle cx="140" cy="86" r="1.4"/><circle cx="200" cy="68" r="1.4"/>
+        </g>
+
+        <!-- outer rays — long & short interleaved -->
+        <g stroke-width="0.9">
+          <g transform="translate(260 260)">
+            <!-- 24 rays, alternating long/short -->
+            <line x1="0" y1="-180" x2="0" y2="-220"/>
+            <line x1="0" y1="-180" x2="0" y2="-200" transform="rotate(15)"/>
+            <line x1="0" y1="-180" x2="0" y2="-220" transform="rotate(30)"/>
+            <line x1="0" y1="-180" x2="0" y2="-200" transform="rotate(45)"/>
+            <line x1="0" y1="-180" x2="0" y2="-220" transform="rotate(60)"/>
+            <line x1="0" y1="-180" x2="0" y2="-200" transform="rotate(75)"/>
+            <line x1="0" y1="-180" x2="0" y2="-220" transform="rotate(90)"/>
+            <line x1="0" y1="-180" x2="0" y2="-200" transform="rotate(105)"/>
+            <line x1="0" y1="-180" x2="0" y2="-220" transform="rotate(120)"/>
+            <line x1="0" y1="-180" x2="0" y2="-200" transform="rotate(135)"/>
+            <line x1="0" y1="-180" x2="0" y2="-220" transform="rotate(150)"/>
+            <line x1="0" y1="-180" x2="0" y2="-200" transform="rotate(165)"/>
+            <line x1="0" y1="-180" x2="0" y2="-220" transform="rotate(180)"/>
+            <line x1="0" y1="-180" x2="0" y2="-200" transform="rotate(195)"/>
+            <line x1="0" y1="-180" x2="0" y2="-220" transform="rotate(210)"/>
+            <line x1="0" y1="-180" x2="0" y2="-200" transform="rotate(225)"/>
+            <line x1="0" y1="-180" x2="0" y2="-220" transform="rotate(240)"/>
+            <line x1="0" y1="-180" x2="0" y2="-200" transform="rotate(255)"/>
+            <line x1="0" y1="-180" x2="0" y2="-220" transform="rotate(270)"/>
+            <line x1="0" y1="-180" x2="0" y2="-200" transform="rotate(285)"/>
+            <line x1="0" y1="-180" x2="0" y2="-220" transform="rotate(300)"/>
+            <line x1="0" y1="-180" x2="0" y2="-200" transform="rotate(315)"/>
+            <line x1="0" y1="-180" x2="0" y2="-220" transform="rotate(330)"/>
+            <line x1="0" y1="-180" x2="0" y2="-200" transform="rotate(345)"/>
+          </g>
+        </g>
+
+        <!-- inner thin ring -->
+        <circle cx="260" cy="260" r="170" stroke-width="0.6"/>
+        <circle cx="260" cy="260" r="165" stroke-width="0.5" stroke-dasharray="2 3"/>
+
+        <!-- eye outer almond — bold outline -->
+        <path d="M110 260 Q260 130 410 260 Q260 390 110 260 Z" stroke-width="2"/>
+        <!-- upper eyelid shading (cross-hatching) -->
+        <g stroke-width="0.55" opacity="0.85">
+          <path d="M126 248 Q260 145 394 248" />
+          <path d="M138 240 Q260 150 382 240" />
+          <path d="M152 232 Q260 158 368 232" />
+          <path d="M168 226 Q260 168 352 226" />
+          <path d="M186 220 Q260 176 334 220" />
+        </g>
+        <!-- secondary inner almond -->
+        <path d="M132 260 Q260 152 388 260 Q260 368 132 260 Z" stroke-width="0.8"/>
+
+        <!-- iris outer -->
+        <circle cx="260" cy="260" r="68" stroke-width="1.6"/>
+        <circle cx="260" cy="260" r="62" stroke-width="0.5"/>
+
+        <!-- iris striations -->
+        <g stroke-width="0.6">
+          <g transform="translate(260 260)">
+            <line x1="0" y1="-66" x2="0" y2="-28"/>
+            <line x1="0" y1="-66" x2="0" y2="-28" transform="rotate(15)"/>
+            <line x1="0" y1="-66" x2="0" y2="-28" transform="rotate(30)"/>
+            <line x1="0" y1="-66" x2="0" y2="-28" transform="rotate(45)"/>
+            <line x1="0" y1="-66" x2="0" y2="-28" transform="rotate(60)"/>
+            <line x1="0" y1="-66" x2="0" y2="-28" transform="rotate(75)"/>
+            <line x1="0" y1="-66" x2="0" y2="-28" transform="rotate(90)"/>
+            <line x1="0" y1="-66" x2="0" y2="-28" transform="rotate(105)"/>
+            <line x1="0" y1="-66" x2="0" y2="-28" transform="rotate(120)"/>
+            <line x1="0" y1="-66" x2="0" y2="-28" transform="rotate(135)"/>
+            <line x1="0" y1="-66" x2="0" y2="-28" transform="rotate(150)"/>
+            <line x1="0" y1="-66" x2="0" y2="-28" transform="rotate(165)"/>
+            <line x1="0" y1="-66" x2="0" y2="-28" transform="rotate(180)"/>
+            <line x1="0" y1="-66" x2="0" y2="-28" transform="rotate(195)"/>
+            <line x1="0" y1="-66" x2="0" y2="-28" transform="rotate(210)"/>
+            <line x1="0" y1="-66" x2="0" y2="-28" transform="rotate(225)"/>
+            <line x1="0" y1="-66" x2="0" y2="-28" transform="rotate(240)"/>
+            <line x1="0" y1="-66" x2="0" y2="-28" transform="rotate(255)"/>
+            <line x1="0" y1="-66" x2="0" y2="-28" transform="rotate(270)"/>
+            <line x1="0" y1="-66" x2="0" y2="-28" transform="rotate(285)"/>
+            <line x1="0" y1="-66" x2="0" y2="-28" transform="rotate(300)"/>
+            <line x1="0" y1="-66" x2="0" y2="-28" transform="rotate(315)"/>
+            <line x1="0" y1="-66" x2="0" y2="-28" transform="rotate(330)"/>
+            <line x1="0" y1="-66" x2="0" y2="-28" transform="rotate(345)"/>
+          </g>
+        </g>
+
+        <!-- pupil — animated group -->
+        <g id="eye-pupil-grp">
+          <circle cx="260" cy="260" r="26" fill="currentColor" stroke="none"/>
+          <!-- highlight -->
+          <circle cx="252" cy="252" r="5" fill="#faf6ec" stroke="none"/>
+          <circle cx="266" cy="266" r="2" fill="#faf6ec" stroke="none"/>
+        </g>
+
+        <!-- lower eyelid shading (denser hatching) -->
+        <g stroke-width="0.5" opacity="0.75">
+          <path d="M126 272 Q260 375 394 272" />
+          <path d="M140 282 Q260 380 380 282" />
+          <path d="M158 292 Q260 384 362 292" />
+        </g>
+
+        <!-- tiny ornament dots above and below -->
+        <g fill="currentColor" stroke="none">
+          <circle cx="260" cy="120" r="1.6"/>
+          <circle cx="260" cy="130" r="1"/>
+          <circle cx="260" cy="400" r="1.6"/>
+          <circle cx="260" cy="390" r="1"/>
+        </g>
+      </g>
+    </symbol>
+
+    <!-- Small mark: laurel sprig (left half) -->
+    <symbol id="eng-laurel" viewBox="0 0 120 40">
+      <g fill="none" stroke="currentColor" stroke-width="0.9" stroke-linecap="round">
+        <path d="M2 20 L118 20"/>
+        <g>
+          <ellipse cx="20" cy="14" rx="5" ry="2" transform="rotate(-25 20 14)"/>
+          <ellipse cx="32" cy="26" rx="5" ry="2" transform="rotate(25 32 26)"/>
+          <ellipse cx="44" cy="14" rx="5" ry="2" transform="rotate(-25 44 14)"/>
+          <ellipse cx="56" cy="26" rx="5" ry="2" transform="rotate(25 56 26)"/>
+          <circle cx="60" cy="20" r="2" fill="currentColor"/>
+          <ellipse cx="64" cy="14" rx="5" ry="2" transform="rotate(25 64 14)"/>
+          <ellipse cx="76" cy="26" rx="5" ry="2" transform="rotate(-25 76 26)"/>
+          <ellipse cx="88" cy="14" rx="5" ry="2" transform="rotate(25 88 14)"/>
+          <ellipse cx="100" cy="26" rx="5" ry="2" transform="rotate(-25 100 26)"/>
+        </g>
+      </g>
+    </symbol>
+
+    <!-- Card mark: hourglass (для канала «Списания» / время утекает) -->
+    <symbol id="eng-hourglass" viewBox="0 0 50 60">
+      <g fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="6" y1="4" x2="44" y2="4"/>
+        <line x1="6" y1="56" x2="44" y2="56"/>
+        <path d="M10 4 L10 12 L24 30 L10 48 L10 56"/>
+        <path d="M40 4 L40 12 L26 30 L40 48 L40 56"/>
+        <!-- sand -->
+        <path d="M14 8 L36 8 L26 22 Z" fill="currentColor" stroke="none" opacity="0.85"/>
+        <path d="M24 32 L26 32 L26 46 L24 46 Z" fill="currentColor" stroke="none"/>
+        <!-- shading hatch -->
+        <line x1="14" y1="50" x2="36" y2="50" stroke-width="0.5"/>
+      </g>
+    </symbol>
+
+    <!-- Card mark: caduceus / merchant -->
+    <symbol id="eng-caduceus" viewBox="0 0 50 60">
+      <g fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round">
+        <line x1="25" y1="6" x2="25" y2="56"/>
+        <path d="M25 14 C16 16 16 24 25 26 C34 28 34 36 25 38 C18 39.5 18 46 25 47"/>
+        <path d="M25 14 C34 16 34 24 25 26 C16 28 16 36 25 38 C32 39.5 32 46 25 47"/>
+        <path d="M25 12 C18 8 12 10 9 14 C15 12.5 20 12.5 25 14"/>
+        <path d="M25 12 C32 8 38 10 41 14 C35 12.5 30 12.5 25 14"/>
+        <circle cx="25" cy="8" r="1.6" fill="currentColor"/>
+        <line x1="17" y1="56" x2="33" y2="56"/>
+      </g>
+    </symbol>
+
+    <!-- Card mark: scales -->
+    <symbol id="eng-scales" viewBox="0 0 60 60">
+      <g fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round">
+        <line x1="30" y1="6" x2="30" y2="46"/>
+        <line x1="10" y1="14" x2="50" y2="14"/>
+        <line x1="14" y1="14" x2="14" y2="26"/>
+        <line x1="46" y1="14" x2="46" y2="26"/>
+        <path d="M5 26 L23 26 L18 34 L10 34 Z"/>
+        <path d="M37 26 L55 26 L50 34 L42 34 Z"/>
+        <line x1="20" y1="46" x2="40" y2="46"/>
+        <path d="M24 46 L24 50 L36 50 L36 46"/>
+        <!-- hatching pans -->
+        <line x1="9" y1="28" x2="20" y2="28" stroke-width="0.4"/>
+        <line x1="41" y1="28" x2="52" y2="28" stroke-width="0.4"/>
+      </g>
+    </symbol>
+
+    <!-- Card mark: cornucopia (rough — abundance / margin) -->
+    <symbol id="eng-cornucopia" viewBox="0 0 60 60">
+      <g fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M8 52 Q4 40 16 28 Q28 18 42 18 L52 12 L46 22 Q50 32 44 42 Q38 50 26 52 Z"/>
+        <path d="M46 22 Q40 26 36 32" stroke-width="0.7"/>
+        <circle cx="22" cy="30" r="2"/>
+        <circle cx="28" cy="36" r="2"/>
+        <circle cx="34" cy="32" r="2"/>
+        <ellipse cx="30" cy="44" rx="3" ry="1.6" transform="rotate(20 30 44)"/>
+        <path d="M18 36 Q14 40 14 46" stroke-width="0.5"/>
+      </g>
+    </symbol>
+
+    <!-- Decorative ornament — small fleuron between sections -->
+    <symbol id="eng-fleuron" viewBox="0 0 60 30">
+      <g fill="none" stroke="currentColor" stroke-width="0.9" stroke-linecap="round">
+        <circle cx="30" cy="15" r="3" fill="currentColor"/>
+        <path d="M0 15 L24 15"/>
+        <path d="M36 15 L60 15"/>
+        <path d="M24 15 Q22 9 18 8 Q22 11 24 15 Q22 19 18 22 Q22 21 24 15"/>
+        <path d="M36 15 Q38 9 42 8 Q38 11 36 15 Q38 19 42 22 Q38 21 36 15"/>
+      </g>
+    </symbol>
+
+    <!-- Diff section divider — small marble column -->
+    <symbol id="eng-column" viewBox="0 0 50 120">
+      <g fill="none" stroke="currentColor" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="6" y="8" width="38" height="4"/>
+        <rect x="3" y="12" width="44" height="8"/>
+        <!-- flutes -->
+        <line x1="10" y1="20" x2="10" y2="104"/>
+        <line x1="15" y1="20" x2="15" y2="104"/>
+        <line x1="20" y1="20" x2="20" y2="104"/>
+        <line x1="25" y1="20" x2="25" y2="104"/>
+        <line x1="30" y1="20" x2="30" y2="104"/>
+        <line x1="35" y1="20" x2="35" y2="104"/>
+        <line x1="40" y1="20" x2="40" y2="104"/>
+        <line x1="8" y1="20" x2="42" y2="20"/>
+        <rect x="3" y="104" width="44" height="8"/>
+        <rect x="6" y="112" width="38" height="4"/>
+      </g>
+    </symbol>
+
+    <!-- Owl — small icon for role -->
+    <symbol id="eng-owl" viewBox="0 0 60 60">
+      <g fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round">
+        <path d="M30 8 C18 8 12 20 12 32 C12 46 20 54 30 54 C40 54 48 46 48 32 C48 20 42 8 30 8 Z"/>
+        <path d="M18 14 L14 6 L22 10"/><path d="M42 14 L46 6 L38 10"/>
+        <circle cx="23" cy="24" r="5"/><circle cx="37" cy="24" r="5"/>
+        <circle cx="23" cy="24" r="1.6" fill="currentColor"/>
+        <circle cx="37" cy="24" r="1.6" fill="currentColor"/>
+        <path d="M30 30 L28 34 L32 34 Z" fill="currentColor"/>
+        <path d="M20 42 Q24 45 28 42 Q30 45 32 42 Q36 45 40 42" stroke-width="0.6"/>
+        <path d="M20 48 Q24 51 28 48 Q30 51 32 48 Q36 51 40 48" stroke-width="0.6"/>
+      </g>
+    </symbol>
+
+    <!-- Hermes head / messenger -->
+    <symbol id="eng-hermes" viewBox="0 0 60 60">
+      <g fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round">
+        <line x1="30" y1="6" x2="30" y2="54"/>
+        <path d="M30 14 C22 16 22 22 30 24 C38 26 38 32 30 34"/>
+        <path d="M30 14 C38 16 38 22 30 24 C22 26 22 32 30 34"/>
+        <path d="M30 10 C24 4 18 6 14 12 C20 10 26 10 30 12"/>
+        <path d="M30 10 C36 4 42 6 46 12 C40 10 34 10 30 12"/>
+        <circle cx="30" cy="6" r="1.4" fill="currentColor"/>
+      </g>
+    </symbol>
+
+    <!-- Anchor / Zeus thunder -->
+    <symbol id="eng-thunder" viewBox="0 0 60 60">
+      <g fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M34 6 L20 30 L28 30 L22 54 L42 26 L34 26 L40 6 Z"/>
+      </g>
+    </symbol>
+
+    <!-- Apollo / sun -->
+    <symbol id="eng-sun" viewBox="0 0 60 60">
+      <g fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round">
+        <circle cx="30" cy="30" r="10"/>
+        <g transform="translate(30 30)">
+          <line x1="0" y1="-15" x2="0" y2="-22"/>
+          <line x1="0" y1="-15" x2="0" y2="-22" transform="rotate(30)"/>
+          <line x1="0" y1="-15" x2="0" y2="-22" transform="rotate(60)"/>
+          <line x1="0" y1="-15" x2="0" y2="-22" transform="rotate(90)"/>
+          <line x1="0" y1="-15" x2="0" y2="-22" transform="rotate(120)"/>
+          <line x1="0" y1="-15" x2="0" y2="-22" transform="rotate(150)"/>
+          <line x1="0" y1="-15" x2="0" y2="-22" transform="rotate(180)"/>
+          <line x1="0" y1="-15" x2="0" y2="-22" transform="rotate(210)"/>
+          <line x1="0" y1="-15" x2="0" y2="-22" transform="rotate(240)"/>
+          <line x1="0" y1="-15" x2="0" y2="-22" transform="rotate(270)"/>
+          <line x1="0" y1="-15" x2="0" y2="-22" transform="rotate(300)"/>
+          <line x1="0" y1="-15" x2="0" y2="-22" transform="rotate(330)"/>
+        </g>
+      </g>
+    </symbol>
+
+    <!-- Hephaestus / hammer + anvil -->
+    <symbol id="eng-anvil" viewBox="0 0 60 60">
+      <g fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M8 36 L52 36 L46 42 L14 42 Z"/>
+        <line x1="22" y1="42" x2="22" y2="52"/>
+        <line x1="38" y1="42" x2="38" y2="52"/>
+        <line x1="16" y1="52" x2="44" y2="52"/>
+        <rect x="22" y="18" width="16" height="6"/>
+        <line x1="30" y1="24" x2="30" y2="8"/>
+      </g>
+    </symbol>
+
+    <!-- Themis / scales (mini) — reuse eng-scales for finance role -->
+
+    <!-- Vase / amphora for ROI section -->
+    <symbol id="eng-amphora" viewBox="0 0 80 120">
+      <g fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+        <!-- mouth -->
+        <ellipse cx="40" cy="14" rx="14" ry="3"/>
+        <line x1="26" y1="14" x2="26" y2="22"/>
+        <line x1="54" y1="14" x2="54" y2="22"/>
+        <ellipse cx="40" cy="22" rx="14" ry="3"/>
+        <!-- handles -->
+        <path d="M26 22 Q12 28 16 50"/>
+        <path d="M54 22 Q68 28 64 50"/>
+        <path d="M16 50 Q18 56 24 56"/>
+        <path d="M64 50 Q62 56 56 56"/>
+        <!-- body -->
+        <path d="M26 22 Q12 50 20 88 Q30 102 40 102 Q50 102 60 88 Q68 50 54 22"/>
+        <!-- decorative bands -->
+        <ellipse cx="40" cy="44" rx="22" ry="2.5"/>
+        <ellipse cx="40" cy="82" rx="20" ry="2.5"/>
+        <!-- meander band -->
+        <g stroke-width="0.6">
+          <path d="M20 56 L20 60 L24 60 L24 58 L28 58 L28 60 L32 60 L32 56 L36 56 L36 60 L40 60 L40 58 L44 58 L44 60 L48 60 L48 56 L52 56 L52 60 L56 60 L56 58 L60 58"/>
+        </g>
+        <!-- foot -->
+        <path d="M32 102 L48 102 L46 110 L34 110 Z"/>
+        <ellipse cx="40" cy="112" rx="10" ry="2"/>
+      </g>
+    </symbol>
+
+    <!-- Torch — for "tushim pozhary" small accent -->
+    <symbol id="eng-torch" viewBox="0 0 40 80">
+      <g fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+        <!-- flame -->
+        <path d="M14 24 Q18 8 20 18 Q22 4 24 16 Q26 8 28 22 Q26 30 20 32 Q14 30 14 24 Z"/>
+        <path d="M18 22 Q20 14 22 22" stroke-width="0.6"/>
+        <!-- bowl -->
+        <path d="M12 32 L28 32 L26 38 L14 38 Z"/>
+        <!-- handle -->
+        <rect x="17" y="38" width="6" height="34"/>
+        <line x1="18" y1="44" x2="22" y2="44" stroke-width="0.5"/>
+        <line x1="18" y1="52" x2="22" y2="52" stroke-width="0.5"/>
+        <line x1="18" y1="60" x2="22" y2="60" stroke-width="0.5"/>
+      </g>
+    </symbol>
+
+    <!-- Wreath circular — for ROI / hero ornament -->
+    <symbol id="eng-wreath" viewBox="0 0 120 120">
+      <g fill="none" stroke="currentColor" stroke-width="0.9" stroke-linecap="round">
+        <circle cx="60" cy="60" r="50" stroke-dasharray="2 4" stroke-width="0.5"/>
+        <g>
+          <!-- 12 leaf clusters around -->
+          <g transform="translate(60 60) rotate(0)"><ellipse cx="0" cy="-50" rx="6" ry="2.5"/></g>
+          <g transform="translate(60 60) rotate(30)"><ellipse cx="0" cy="-50" rx="6" ry="2.5"/></g>
+          <g transform="translate(60 60) rotate(60)"><ellipse cx="0" cy="-50" rx="6" ry="2.5"/></g>
+          <g transform="translate(60 60) rotate(90)"><ellipse cx="0" cy="-50" rx="6" ry="2.5"/></g>
+          <g transform="translate(60 60) rotate(120)"><ellipse cx="0" cy="-50" rx="6" ry="2.5"/></g>
+          <g transform="translate(60 60) rotate(150)"><ellipse cx="0" cy="-50" rx="6" ry="2.5"/></g>
+          <g transform="translate(60 60) rotate(180)"><ellipse cx="0" cy="-50" rx="6" ry="2.5"/></g>
+          <g transform="translate(60 60) rotate(210)"><ellipse cx="0" cy="-50" rx="6" ry="2.5"/></g>
+          <g transform="translate(60 60) rotate(240)"><ellipse cx="0" cy="-50" rx="6" ry="2.5"/></g>
+          <g transform="translate(60 60) rotate(270)"><ellipse cx="0" cy="-50" rx="6" ry="2.5"/></g>
+          <g transform="translate(60 60) rotate(300)"><ellipse cx="0" cy="-50" rx="6" ry="2.5"/></g>
+          <g transform="translate(60 60) rotate(330)"><ellipse cx="0" cy="-50" rx="6" ry="2.5"/></g>
+          <!-- tie at bottom -->
+          <path d="M52 108 L60 116 L68 108"/>
+        </g>
+      </g>
+    </symbol>
+
+  </defs>
+</svg>
+
+
+<!-- ============ NAV ============ -->
+<nav class="nav" id="nav">
+  <a class="brand" href="#top">
+    <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true">
+      <circle cx="20" cy="20" r="18" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <circle cx="20" cy="20" r="13" fill="none" stroke="currentColor" stroke-width="0.7"/>
+      <circle cx="20" cy="20" r="5" fill="currentColor"/>
+    </svg>
+    <span class="brand-name">Orakul</span>
+  </a>
+  <div class="nav-links">
+    <a href="#problem">Проблема</a>
+    <a href="#value">Что даёт</a>
+    <a href="#roles">По ролям</a>
+    <a href="#roi">ROI</a>
+    <a href="#how">Как работает</a>
+  </div>
+  <a class="btn btn-primary" href="#cta">Получить демо</a>
+</nav>
+
+<!-- ============ HERO ============ -->
+<header id="top" class="hero">
+  <div class="container hero-inner">
+    <div class="hero-text">
+      <div class="eyebrow">
+        <span class="rule"></span>
+        <span>ΟΡΑΚΟΥΛ · Δελφικός σύμβουλος · поверх Kiepper</span>
+      </div>
+
+      <h1 class="hero-title">
+        <span class="line">Прорицание</span>
+        <span class="line"><em>прибыли.</em></span>
+        <span class="line line-small">Утро за утром.</span>
+      </h1>
+
+      <p class="hero-sub">
+        Каждое утро управляющий получает план дня: что заказать, чего не&nbsp;хватит,
+        где утекает маржа. Не&nbsp;магия — данные Kiepper и&nbsp;объяснимый ИИ.
+        Каждое прорицание <strong>с&nbsp;обоснованием</strong> до&nbsp;последней строки.
+      </p>
+
+      <div class="hero-cta">
+        <a class="btn btn-primary btn-lg" href="#cta">Запросить пилот <span class="arrow">→</span></a>
+        <a class="btn btn-ghost btn-lg" href="#how">Как это работает</a>
+      </div>
+    </div>
+
+    <div class="hero-art">
+      <svg class="eng eng-hero" viewBox="0 0 520 520" aria-hidden="true">
+        <use href="#eng-hero-eye"/>
+      </svg>
+      <div class="hero-caption"><em>Tabula I.</em> Δελφικὸν ὄμμα — Дельфийское око</div>
+    </div>
+  </div>
+
+  <div class="hero-stats container">
+    <div class="stat">
+      <div class="stat-num" data-count="30" data-suffix="%">0%</div>
+      <div class="stat-label">снижение списаний</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num" data-count="20" data-suffix="%">0%</div>
+      <div class="stat-label">экономия закупок</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num" data-count="12" data-suffix=" п.п.">0 п.п.</div>
+      <div class="stat-label">к маржинальности меню</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num" data-count="15" data-suffix=" ч/нед">0 ч/нед</div>
+      <div class="stat-label">высвобождено у управляющего</div>
+    </div>
+  </div>
+
+  <div class="hero-scroll" aria-hidden="true">
+    <span>прокрутите ниже</span>
+  </div>
+</header>
+
+<!-- ============ PROBLEM ============ -->
+<section id="problem" class="section section-problem">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="kicker">I · Проблема</span>
+      <h2>Управление рестораном превратилось в&nbsp;<em>тушение пожаров</em>.</h2>
+      <p>Списания вскрываются постфактум. Прайсы поставщиков сравнивают в&nbsp;Excel. Стоп-лист объявляется к&nbsp;обеденному часу. Маржа утекает — но&nbsp;никто не&nbsp;знает куда именно.</p>
+    </div>
+
+    <div class="compare">
+      <div class="compare-col reveal">
+        <svg class="compare-mark" viewBox="0 0 40 80" aria-hidden="true"><use href="#eng-torch"/></svg>
+        <div class="compare-tag">Без Orakul</div>
+        <ul>
+          <li>Списания видны через месяц в&nbsp;P&amp;L</li>
+          <li>Прайсы поставщиков сравнивают в&nbsp;Excel</li>
+          <li>Стоп-лист появляется к&nbsp;обеденному часу</li>
+          <li>«Куда уходит маржа?» — вопрос без ответа</li>
+          <li>Управляющий тратит 12+&nbsp;часов/нед на&nbsp;ручные сверки</li>
+        </ul>
+      </div>
+
+      <div class="compare-col compare-after reveal" data-reveal-delay="100">
+        <svg class="compare-mark" viewBox="0 0 120 40" aria-hidden="true"><use href="#eng-laurel"/></svg>
+        <div class="compare-tag tag-good">С Orakul</div>
+        <ul>
+          <li>Алерт по&nbsp;аномалии <strong>в&nbsp;день события</strong></li>
+          <li>Готовый проект заказа с&nbsp;обоснованием</li>
+          <li>Прогноз спроса до&nbsp;открытия смены</li>
+          <li>Маржа разложена по&nbsp;позициям и&nbsp;точкам</li>
+          <li>Управляющий тратит время <strong>на&nbsp;гостя</strong></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- divider -->
+<div class="divider"><svg viewBox="0 0 60 30" aria-hidden="true"><use href="#eng-fleuron"/></svg></div>
+
+<!-- ============ VALUE ============ -->
+<section id="value" class="section section-value">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="kicker">II · Четыре канала</span>
+      <h2>Каждая фича — деньги, что можно <em>взвесить</em>.</h2>
+      <p>Никаких «вообще полезных» дашбордов. Только привязка к&nbsp;KPI и&nbsp;строкам P&amp;L.</p>
+    </div>
+
+    <div class="cards">
+      <article class="card reveal">
+        <svg class="card-mark" viewBox="0 0 50 60" aria-hidden="true"><use href="#eng-hourglass"/></svg>
+        <h3>Снижение списаний</h3>
+        <div class="card-metric">−15…30<span class="metric-unit">%</span></div>
+        <p>Прогноз остатков и&nbsp;сроков годности подсказывает, что использовать сегодня, чтобы не&nbsp;выбросить завтра.</p>
+        <div class="card-tag">BIZ-01</div>
+      </article>
+
+      <article class="card reveal" data-reveal-delay="80">
+        <svg class="card-mark" viewBox="0 0 50 60" aria-hidden="true"><use href="#eng-caduceus"/></svg>
+        <h3>Оптимизация закупок</h3>
+        <div class="card-metric">−10…20<span class="metric-unit">%</span></div>
+        <p>Сравнение поставщиков по&nbsp;истории цен, качеству и&nbsp;срокам — готовый проект заказа за&nbsp;минуты, а&nbsp;не&nbsp;часы.</p>
+        <div class="card-tag">BIZ-07</div>
+      </article>
+
+      <article class="card reveal" data-reveal-delay="160">
+        <svg class="card-mark" viewBox="0 0 60 60" aria-hidden="true"><use href="#eng-cornucopia"/></svg>
+        <h3>Маржинальность меню</h3>
+        <div class="card-metric">+5…12<span class="metric-unit"> п.п.</span></div>
+        <p>Сценарное моделирование: что будет с&nbsp;P&amp;L, если поднять цену блюда или заменить ингредиент.</p>
+        <div class="card-tag">BIZ-03</div>
+      </article>
+
+      <article class="card reveal" data-reveal-delay="240">
+        <svg class="card-mark" viewBox="0 0 60 60" aria-hidden="true"><use href="#eng-scales"/></svg>
+        <h3>Время управляющего</h3>
+        <div class="card-metric">+10…15<span class="metric-unit"> ч/нед</span></div>
+        <p>Утренний короткий план вместо разборок в&nbsp;Excel. Управляющий — в&nbsp;зале, а&nbsp;не&nbsp;в&nbsp;таблицах.</p>
+        <div class="card-tag">BIZ-04</div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ DIFFERENTIATORS ============ -->
+<section class="section section-diff">
+  <div class="container">
+    <div class="section-head section-head--center reveal">
+      <svg class="head-mark" viewBox="0 0 50 120" aria-hidden="true"><use href="#eng-column"/></svg>
+      <span class="kicker">III · Чем отличается</span>
+      <h2>Шесть принципов, на&nbsp;которых стоит продукт.</h2>
+      <p>Чтобы вы понимали, какому фундаменту доверяете свои данные.</p>
+    </div>
+
+    <div class="diff-grid">
+      <div class="diff-item reveal">
+        <div class="diff-num">01</div>
+        <h4>Built on Kiepper</h4>
+        <p>Мастер-данные остаются в&nbsp;вашей учётной системе. Orakul читает и&nbsp;пишет, но не&nbsp;подменяет источник истины. Внедрение — без миграции.</p>
+      </div>
+      <div class="diff-item reveal" data-reveal-delay="60">
+        <div class="diff-num">02</div>
+        <h4>Объяснимость прежде магии</h4>
+        <p>Каждая рекомендация имеет читаемое бизнес-обоснование. Если объяснить «почему» нельзя — рекомендация не&nbsp;показывается.</p>
+      </div>
+      <div class="diff-item reveal" data-reveal-delay="120">
+        <div class="diff-num">03</div>
+        <h4>Совет, а&nbsp;не&nbsp;автоматизация</h4>
+        <p>Orakul <em>предлагает</em>, человек <em>утверждает</em>. Никакой полной автоматизации заказов, пока вы сами этому не&nbsp;поверите.</p>
+      </div>
+      <div class="diff-item reveal" data-reveal-delay="180">
+        <div class="diff-num">04</div>
+        <h4>Сначала управляющий</h4>
+        <p>Сценарии под 5-минутное окно управляющего и&nbsp;закупщика в&nbsp;шуме кухни. Не&nbsp;под аналитика и&nbsp;не&nbsp;под ИТ-директора.</p>
+      </div>
+      <div class="diff-item reveal" data-reveal-delay="240">
+        <div class="diff-num">05</div>
+        <h4>Измеримо — или ничего не&nbsp;было</h4>
+        <p>Каждая фича привязана к&nbsp;KPI. Если вклад в&nbsp;деньги не&nbsp;считается — её нет в&nbsp;продукте.</p>
+      </div>
+      <div class="diff-item reveal" data-reveal-delay="300">
+        <div class="diff-num">06</div>
+        <h4>Не торговец на&nbsp;агоре</h4>
+        <p>Мы сравниваем прайсы, но&nbsp;не&nbsp;зарабатываем на&nbsp;агентских комиссиях. Никаких скрытых стимулов рекомендовать «удобного» поставщика.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"><svg viewBox="0 0 60 30" aria-hidden="true"><use href="#eng-fleuron"/></svg></div>
+
+<!-- ============ ROLES ============ -->
+<section id="roles" class="section section-roles">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="kicker">IV · По ролям</span>
+      <h2>От собственника до&nbsp;шефа — каждому свой Orakul.</h2>
+      <p>Один продукт, шесть интерфейсов. Каждый видит то, что нужно ему для&nbsp;5-минутного утреннего цикла.</p>
+    </div>
+
+    <div class="roles">
+      <article class="role reveal">
+        <svg class="role-mark" viewBox="0 0 60 60" aria-hidden="true"><use href="#eng-thunder"/></svg>
+        <h4>Собственник</h4>
+        <p class="role-pain">«Не понимаю, куда уходит маржа»</p>
+        <p class="role-gain">Прозрачная экономика в&nbsp;дашборде, ROI-кейс по&nbsp;точкам.</p>
+        <span class="role-emo">Контроль</span>
+      </article>
+      <article class="role reveal" data-reveal-delay="60">
+        <svg class="role-mark" viewBox="0 0 60 60" aria-hidden="true"><use href="#eng-sun"/></svg>
+        <h4>Операционный директор</h4>
+        <p class="role-pain">«Каждая точка живёт своей жизнью»</p>
+        <p class="role-gain">Сравнение точек, единые стандарты, KPI в&nbsp;одном окне.</p>
+        <span class="role-emo">Управляемость</span>
+      </article>
+      <article class="role reveal" data-reveal-delay="120">
+        <svg class="role-mark" viewBox="0 0 60 60" aria-hidden="true"><use href="#eng-hermes"/></svg>
+        <h4>Управляющий точкой</h4>
+        <p class="role-pain">«Опять стоп-лист, опять списания»</p>
+        <p class="role-gain">Утренний короткий план: что заказать, чего не&nbsp;хватит.</p>
+        <span class="role-emo">Спокойствие</span>
+      </article>
+      <article class="role reveal" data-reveal-delay="180">
+        <svg class="role-mark" viewBox="0 0 60 60" aria-hidden="true"><use href="#eng-owl"/></svg>
+        <h4>Закупщик</h4>
+        <p class="role-pain">«Не успеваю сравнить прайсы»</p>
+        <p class="role-gain">Готовый проект заказа с&nbsp;обоснованием на&nbsp;каждой позиции.</p>
+        <span class="role-emo">Скорость</span>
+      </article>
+      <article class="role reveal" data-reveal-delay="240">
+        <svg class="role-mark" viewBox="0 0 60 60" aria-hidden="true"><use href="#eng-anvil"/></svg>
+        <h4>Шеф-повар</h4>
+        <p class="role-pain">«Опять считают перерасход на&nbsp;меня»</p>
+        <p class="role-gain">Прозрачность факт vs&nbsp;норма — защита перед руководством.</p>
+        <span class="role-emo">Справедливость</span>
+      </article>
+      <article class="role reveal" data-reveal-delay="300">
+        <svg class="role-mark" viewBox="0 0 60 60" aria-hidden="true"><use href="#eng-scales"/></svg>
+        <h4>Финансовый контролёр</h4>
+        <p class="role-pain">«Аномалии вижу через месяц»</p>
+        <p class="role-gain">Ежедневные алерты, аудит-трейл по&nbsp;каждой операции.</p>
+        <span class="role-emo">Раннее обнаружение</span>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ROI ============ -->
+<section id="roi" class="section section-roi">
+  <div class="container">
+    <div class="roi-card reveal">
+      <svg class="roi-wreath wreath-left" viewBox="0 0 120 120" aria-hidden="true"><use href="#eng-wreath"/></svg>
+      <svg class="roi-wreath wreath-right" viewBox="0 0 120 120" aria-hidden="true"><use href="#eng-wreath"/></svg>
+
+      <div class="roi-left">
+        <span class="kicker">V · Реальный кейс</span>
+        <h2>Сеть из&nbsp;<strong>10 точек</strong>, оборот <strong>40 млн&nbsp;Br/год</strong>.</h2>
+        <p>Расчёт по&nbsp;методике Business Case&nbsp;&amp;&nbsp;ROI. С&nbsp;включённым модулем сравнения поставщиков.</p>
+        <a class="btn btn-primary" href="#cta">Посчитать для&nbsp;моей сети <span class="arrow">→</span></a>
+      </div>
+
+      <div class="roi-right">
+        <div class="roi-row">
+          <span>Снижение списаний</span>
+          <strong class="num" data-count="400" data-suffix=" тыс Br">0</strong>
+        </div>
+        <div class="roi-row">
+          <span>Экономия закупок</span>
+          <strong class="num" data-count="1700" data-suffix=" тыс Br">0</strong>
+        </div>
+        <div class="roi-row">
+          <span>Прирост маржи</span>
+          <strong class="num" data-count="800" data-suffix=" тыс Br">0</strong>
+        </div>
+        <div class="roi-row">
+          <span>Время управляющего</span>
+          <strong class="num" data-count="200" data-suffix=" тыс Br">0</strong>
+        </div>
+        <div class="roi-rule"></div>
+        <div class="roi-row roi-total">
+          <span>Годовая экономия</span>
+          <strong class="num num-total" data-count="2300" data-suffix=" тыс Br">0</strong>
+        </div>
+        <div class="roi-row roi-sub">
+          <span>Стоимость Orakul (год 1)</span>
+          <strong>−70 тыс&nbsp;Br</strong>
+        </div>
+        <div class="roi-row roi-payback">
+          <span>Окупаемость</span>
+          <strong>&lt;&nbsp;1&nbsp;месяца</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"><svg viewBox="0 0 60 30" aria-hidden="true"><use href="#eng-fleuron"/></svg></div>
+
+<!-- ============ HOW IT WORKS ============ -->
+<section id="how" class="section section-how">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="kicker">VI · Как это работает</span>
+      <h2>От подключения Kiepper до&nbsp;первой рекомендации — <em>14 дней</em>.</h2>
+    </div>
+
+    <ol class="timeline">
+      <li class="t-step reveal">
+        <div class="t-dot">01</div>
+        <div class="t-body">
+          <h4>Подключаем Kiepper</h4>
+          <p>Читаем справочники, остатки, продажи, рецептуры, закупки. Без миграции данных, без замены кассы.</p>
+          <span class="t-time">День 1–3</span>
+        </div>
+      </li>
+      <li class="t-step reveal" data-reveal-delay="80">
+        <div class="t-dot">02</div>
+        <div class="t-body">
+          <h4>Baseline-замер</h4>
+          <p>Фиксируем текущие списания, food&nbsp;cost, среднюю маржу. Это база, от&nbsp;которой считаем эффект.</p>
+          <span class="t-time">День 4–7</span>
+        </div>
+      </li>
+      <li class="t-step reveal" data-reveal-delay="160">
+        <div class="t-dot">03</div>
+        <div class="t-body">
+          <h4>Калибровка моделей</h4>
+          <p>Учим прогноз спроса и&nbsp;аномалий на&nbsp;вашей истории. Объяснимая модель, не&nbsp;чёрный ящик.</p>
+          <span class="t-time">День 8–12</span>
+        </div>
+      </li>
+      <li class="t-step reveal" data-reveal-delay="240">
+        <div class="t-dot">04</div>
+        <div class="t-body">
+          <h4>Первые рекомендации</h4>
+          <p>Управляющий получает утренний план. Закупщик — готовый проект заказа. Финконтролёр — алерты.</p>
+          <span class="t-time">День 13–14</span>
+        </div>
+      </li>
+      <li class="t-step reveal" data-reveal-delay="320">
+        <div class="t-dot">✓</div>
+        <div class="t-body">
+          <h4>Верифицированный ROI</h4>
+          <p>Через 90&nbsp;дней — отчёт с&nbsp;финконтролёром: на&nbsp;сколько реально снизились списания и&nbsp;food&nbsp;cost.</p>
+          <span class="t-time">+90 дней</span>
+        </div>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- ============ ANTI ============ -->
+<section class="section section-anti">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="kicker">VII · Честно</span>
+      <h2>Чем Orakul <em>не&nbsp;является</em>.</h2>
+      <p>Чтобы вы не&nbsp;покупали кота в&nbsp;мешке.</p>
+    </div>
+    <div class="anti">
+      <div class="anti-item reveal">
+        <span class="cross">×</span>
+        <h4>Не BI / дашборд-конструктор</h4>
+        <p>Power&nbsp;BI и&nbsp;Metabase решают другую задачу — визуализацию. Мы&nbsp;— рекомендации к&nbsp;действию.</p>
+      </div>
+      <div class="anti-item reveal" data-reveal-delay="60">
+        <span class="cross">×</span>
+        <h4>Не ERP и&nbsp;не&nbsp;замена Kiepper</h4>
+        <p>Не&nbsp;пытаемся подменить учётную систему. Усиливаем её&nbsp;— стоим на&nbsp;её&nbsp;колоннах.</p>
+      </div>
+      <div class="anti-item reveal" data-reveal-delay="120">
+        <span class="cross">×</span>
+        <h4>Не «универсальный AI для&nbsp;бизнеса»</h4>
+        <p>Узкая вертикаль, узкая боль, узкие сценарии. Именно поэтому работает.</p>
+      </div>
+      <div class="anti-item reveal" data-reveal-delay="180">
+        <span class="cross">×</span>
+        <h4>Не маркетплейс поставщиков</h4>
+        <p>Никаких агентских комиссий. Только ваши интересы при&nbsp;сравнении прайсов.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CTA ============ -->
+<section id="cta" class="section section-cta">
+  <div class="cta-bg" aria-hidden="true">
+    <svg class="cta-art" viewBox="0 0 80 120" data-parallax="0.1" style="transform: translate(-50%, 0)"><use href="#eng-amphora"/></svg>
+  </div>
+  <div class="container">
+    <div class="cta-card reveal">
+      <svg class="cta-orn" viewBox="0 0 60 30" aria-hidden="true"><use href="#eng-fleuron"/></svg>
+
+      <span class="kicker">VIII · Приходите</span>
+      <h2>Пилот на&nbsp;2&nbsp;точках. <em>30 дней.</em> С&nbsp;замером эффекта.</h2>
+      <p>Подключаем Kiepper, запускаем рекомендации, через&nbsp;месяц&nbsp;— отчёт с&nbsp;финконтролёром: сколько реально сэкономили. Не&nbsp;понравится&nbsp;— расстанемся.</p>
+
+      <form class="cta-form" onsubmit="event.preventDefault(); this.querySelector('.cta-ok').classList.add('show'); this.querySelector('button').disabled = true;">
+        <input type="text" placeholder="Имя" required />
+        <input type="text" placeholder="Сеть / компания" required />
+        <input type="email" placeholder="E-mail" required />
+        <button type="submit" class="btn btn-primary btn-lg">Запросить пилот <span class="arrow">→</span></button>
+        <div class="cta-ok">Спасибо. С&nbsp;вами свяжутся в&nbsp;течение рабочего дня.</div>
+      </form>
+      <div class="cta-foot">
+        Или напишите напрямую: <a href="mailto:hello@orakul.ai">hello@orakul.ai</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="container footer-inner">
+    <div class="footer-brand">
+      <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true">
+        <circle cx="20" cy="20" r="18" fill="none" stroke="currentColor" stroke-width="1.2"/>
+        <circle cx="20" cy="20" r="5" fill="currentColor"/>
+      </svg>
+      <span>Orakul</span>
+    </div>
+    <div class="footer-text">
+      © 2026 · ИИ-советник для&nbsp;общепита поверх Kiepper. Объяснимый ИИ. Без чёрных ящиков.
+    </div>
+  </div>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>

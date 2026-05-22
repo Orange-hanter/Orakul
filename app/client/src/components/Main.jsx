@@ -1,16 +1,37 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../api.js';
-import StopTab   from './tabs/StopTab.jsx';
-import StockTab  from './tabs/StockTab.jsx';
-import MenuTab   from './tabs/MenuTab.jsx';
-import DataTab   from './tabs/DataTab.jsx';
+import VenueSelector from './VenueSelector.jsx';
+import StopTab      from './tabs/StopTab.jsx';
+import StockTab     from './tabs/StockTab.jsx';
+import MenuTab      from './tabs/MenuTab.jsx';
+import SuppliersTab from './tabs/SuppliersTab.jsx';
+import OrdersTab    from './tabs/OrdersTab.jsx';
+import FinanceTab   from './tabs/FinanceTab.jsx';
+import DataTab      from './tabs/DataTab.jsx';
 
 const TABS = [
-  { id: 'stop',  label: 'Стопы',  icon: '🚫' },
-  { id: 'stock', label: 'Склад',  icon: '📦' },
-  { id: 'menu',  label: 'Меню',   icon: '📋' },
-  { id: 'data',  label: 'Данные', icon: '📊' },
+  { id: 'stop',      label: 'Стопы',       icon: '🚫' },
+  { id: 'stock',     label: 'Склад',       icon: '📦' },
+  { id: 'menu',      label: 'Меню',        icon: '📋' },
+  { id: 'suppliers', label: 'Поставщики',  icon: '🏪' },
+  { id: 'orders',    label: 'Заявки',      icon: '📝' },
+  { id: 'finance',   label: 'Финансы',     icon: '📈' },
+  { id: 'data',      label: 'Данные',      icon: '📊' },
 ];
+
+// Записи, привязанные к точке. Должно совпадать с VENUE_SCOPED_TYPES в server.js
+const VENUE_SCOPED_TYPES = new Set([
+  'product',
+  'stop',
+  'stock_entry',
+  'menu_item',
+  'order',
+  'revenue_entry',
+  'fixed_expense',
+  'telegram_chat',
+]);
+
+const VENUE_STORAGE_KEY = 'orakul_venue_id';
 
 function Toast({ msg, type, onDone }) {
   useEffect(() => {
@@ -21,10 +42,12 @@ function Toast({ msg, type, onDone }) {
 }
 
 export default function Main({ onLogout }) {
-  const [tab,     setTab]     = useState('stop');
-  const [records, setRecords] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [toast,   setToast]   = useState(null);
+  const [tab,           setTab]           = useState('stop');
+  const [records,       setRecords]       = useState([]);
+  const [loading,       setLoading]       = useState(true);
+  const [toast,         setToast]         = useState(null);
+  const [venueId,       setVenueId]       = useState(() => localStorage.getItem(VENUE_STORAGE_KEY));
+  const [venueSelector, setVenueSelector] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -42,7 +65,47 @@ export default function Main({ onLogout }) {
     setToast({ msg, type, key: Date.now() });
   }
 
+  // ── Venue resolution ─────────────────────────────────────────────────
+
+  const venues = useMemo(
+    () => records.filter(r => r.type === 'venue').sort((a, b) => a.name.localeCompare(b.name, 'ru')),
+    [records]
+  );
+
+  // Если выбранная точка не найдена (удалена / другой инстанс) — fallback на default или первую
+  const effectiveVenueId = useMemo(() => {
+    if (venues.length === 0) return null;
+    if (venueId && venues.some(v => v.id === venueId)) return venueId;
+    return venues.find(v => v.isDefault)?.id || venues[0].id;
+  }, [venues, venueId]);
+
+  useEffect(() => {
+    if (effectiveVenueId && effectiveVenueId !== venueId) {
+      setVenueId(effectiveVenueId);
+      localStorage.setItem(VENUE_STORAGE_KEY, effectiveVenueId);
+    }
+  }, [effectiveVenueId, venueId]);
+
+  function pickVenue(id) {
+    setVenueId(id);
+    localStorage.setItem(VENUE_STORAGE_KEY, id);
+  }
+
+  // ── Filtered records (venue-scoped types only) ───────────────────────
+
+  const filteredRecords = useMemo(() => {
+    if (!effectiveVenueId) return records;
+    return records.filter(r =>
+      !VENUE_SCOPED_TYPES.has(r.type) || r.venueId === effectiveVenueId
+    );
+  }, [records, effectiveVenueId]);
+
+  // ── CRUD with auto venueId injection ─────────────────────────────────
+
   async function handleCreate(data) {
+    if (VENUE_SCOPED_TYPES.has(data.type) && !data.venueId && effectiveVenueId) {
+      data = { ...data, venueId: effectiveVenueId };
+    }
     const r = await api.records.create(data);
     setRecords(prev => [r, ...prev]);
     return r;
@@ -59,26 +122,40 @@ export default function Main({ onLogout }) {
     setRecords(prev => prev.filter(x => x.id !== id));
   }
 
-  const ctx = { records, loading, onCreate: handleCreate, onUpdate: handleUpdate, onDelete: handleDelete, showToast };
+  const ctx = {
+    records: filteredRecords,
+    loading,
+    onCreate: handleCreate,
+    onUpdate: handleUpdate,
+    onDelete: handleDelete,
+    showToast,
+  };
 
-  const activeStops = records.filter(r => r.type === 'stop' && r.active).length;
-  const today = new Date().toLocaleDateString('ru', { day: 'numeric', month: 'long' });
+  const activeStops = filteredRecords.filter(r => r.type === 'stop' && r.active).length;
+  const currentVenue = venues.find(v => v.id === effectiveVenueId);
 
   return (
     <>
       <header className="app-header">
         <div className="header-left">
           <h1>🧀 Моцарелла</h1>
-          <span className="subtitle">{today}</span>
+          {currentVenue && (
+            <button className="venue-pill" onClick={() => setVenueSelector(true)}>
+              📍 {currentVenue.name} ▾
+            </button>
+          )}
         </div>
         <button className="btn-logout" onClick={onLogout}>Выйти</button>
       </header>
 
       <div className="tab-content">
-        {tab === 'stop'  && <StopTab  {...ctx} />}
-        {tab === 'stock' && <StockTab {...ctx} />}
-        {tab === 'menu'  && <MenuTab  {...ctx} />}
-        {tab === 'data'  && <DataTab  {...ctx} onReload={load} />}
+        {tab === 'stop'      && <StopTab      {...ctx} />}
+        {tab === 'stock'     && <StockTab     {...ctx} />}
+        {tab === 'menu'      && <MenuTab      {...ctx} />}
+        {tab === 'suppliers' && <SuppliersTab {...ctx} />}
+        {tab === 'orders'    && <OrdersTab    {...ctx} />}
+        {tab === 'finance'   && <FinanceTab   {...ctx} />}
+        {tab === 'data'      && <DataTab      {...ctx} onReload={load} />}
       </div>
 
       <nav className="tab-bar">
@@ -92,6 +169,18 @@ export default function Main({ onLogout }) {
           </button>
         ))}
       </nav>
+
+      {venueSelector && (
+        <VenueSelector
+          venues={venues}
+          currentVenueId={effectiveVenueId}
+          onSelect={pickVenue}
+          onCreate={handleCreate}
+          onUpdate={handleUpdate}
+          onClose={() => setVenueSelector(false)}
+          showToast={showToast}
+        />
+      )}
 
       {toast && (
         <Toast key={toast.key} msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />

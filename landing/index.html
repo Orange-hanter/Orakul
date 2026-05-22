@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Orakul — ИИ-советник для общепита</title>
+<meta name="description" content="Orakul переводит управление рестораном из режима «тушим пожары» в режим проактивных ИИ-рекомендаций. Интегрируется с Kiepper, экономит до 2,3 млн Br в год на сети 10 точек." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- Sticky nav -->
+<nav class="nav" id="nav">
+  <a class="brand" href="#top">
+    <span class="brand-mark">
+      <svg viewBox="0 0 32 32" aria-hidden="true">
+        <defs>
+          <linearGradient id="g1" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0" stop-color="#9bff8a"/>
+            <stop offset="1" stop-color="#5ed3ff"/>
+          </linearGradient>
+        </defs>
+        <circle cx="16" cy="16" r="14" stroke="url(#g1)" stroke-width="2" fill="none"/>
+        <circle cx="16" cy="16" r="5" fill="url(#g1)"/>
+      </svg>
+    </span>
+    <span class="brand-name">Orakul</span>
+  </a>
+  <div class="nav-links">
+    <a href="#problem">Проблема</a>
+    <a href="#value">Что даёт</a>
+    <a href="#roles">По ролям</a>
+    <a href="#roi">ROI</a>
+    <a href="#how">Как работает</a>
+  </div>
+  <a class="btn btn-primary" href="#cta">Получить демо</a>
+</nav>
+
+<!-- ============ HERO ============ -->
+<header id="top" class="hero">
+  <div class="hero-bg" aria-hidden="true">
+    <div class="orb orb-1" data-parallax="0.25"></div>
+    <div class="orb orb-2" data-parallax="0.45"></div>
+    <div class="orb orb-3" data-parallax="0.15"></div>
+    <div class="grid-overlay" data-parallax="0.08"></div>
+    <div class="noise"></div>
+  </div>
+
+  <div class="hero-inner">
+    <div class="eyebrow" data-parallax="0.05">
+      <span class="dot"></span>
+      ИИ-советник для сетевого общепита · работает поверх Kiepper
+    </div>
+
+    <h1 class="hero-title">
+      <span class="line line-1">Перестаньте</span>
+      <span class="line line-2"><em>тушить пожары</em></span>
+      <span class="line line-3">по утрам.</span>
+    </h1>
+
+    <p class="hero-sub">
+      Orakul превращает данные вашего ресторана в&nbsp;ежедневный список
+      понятных действий: что заказать, чего не хватит, где утекает маржа.
+      <strong>Не чёрный ящик</strong> — каждая рекомендация с&nbsp;объяснением.
+    </p>
+
+    <div class="hero-cta">
+      <a class="btn btn-primary btn-lg" href="#cta">Запросить пилот <span class="arrow">→</span></a>
+      <a class="btn btn-ghost btn-lg" href="#how">Как это работает</a>
+    </div>
+
+    <div class="hero-stats" data-parallax="0.1">
+      <div class="stat">
+        <div class="stat-num" data-count="30" data-suffix="%">0%</div>
+        <div class="stat-label">снижение списаний</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num" data-count="20" data-suffix="%">0%</div>
+        <div class="stat-label">экономия закупок</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num" data-count="12" data-suffix=" п.п.">0 п.п.</div>
+        <div class="stat-label">к маржинальности меню</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num" data-count="15" data-suffix=" ч/нед">0 ч/нед</div>
+        <div class="stat-label">высвобождено у управляющего</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="hero-scroll" aria-hidden="true">
+    <span>прокрутите</span>
+    <div class="hero-scroll-line"></div>
+  </div>
+</header>
+
+<!-- ============ PROBLEM ============ -->
+<section id="problem" class="section section-problem">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="kicker">Знакомо?</span>
+      <h2>Управление рестораном превратилось в&nbsp;тушение пожаров.</h2>
+      <p>Списания вскрываются постфактум. Закупщик не успевает сравнить прайсы. Управляющий узнаёт о&nbsp;стоп-листе, когда блюдо уже в&nbsp;заказе. Маржа утекает — но никто не знает куда именно.</p>
+    </div>
+
+    <div class="compare">
+      <div class="compare-col compare-before reveal" data-reveal-delay="0">
+        <div class="compare-tag">Без Orakul</div>
+        <ul>
+          <li>Списания видны через месяц в&nbsp;P&amp;L</li>
+          <li>Прайсы поставщиков сравнивают в&nbsp;Excel</li>
+          <li>Стоп-лист появляется к&nbsp;обеденному часу</li>
+          <li>«Куда уходит маржа?» — вопрос без ответа</li>
+          <li>Управляющий тратит 12+&nbsp;часов/нед на&nbsp;ручные сверки</li>
+        </ul>
+      </div>
+
+      <div class="compare-arrow reveal">→</div>
+
+      <div class="compare-col compare-after reveal" data-reveal-delay="120">
+        <div class="compare-tag tag-good">С Orakul</div>
+        <ul>
+          <li>Алерт по&nbsp;аномалии <strong>в день события</strong></li>
+          <li>Готовый проект заказа с&nbsp;обоснованием</li>
+          <li>Прогноз спроса до&nbsp;открытия смены</li>
+          <li>Маржа разложена по&nbsp;позициям и&nbsp;точкам</li>
+          <li>Управляющий тратит время <strong>на гостя</strong></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ VALUE / FEATURES ============ -->
+<section id="value" class="section section-value">
+  <div class="parallax-blob blob-a" data-parallax="0.2" aria-hidden="true"></div>
+  <div class="parallax-blob blob-b" data-parallax="0.35" aria-hidden="true"></div>
+
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="kicker">Четыре канала экономии</span>
+      <h2>Каждая фича — деньги, которые можно посчитать.</h2>
+      <p>Никаких «вообще полезных» дашбордов. Только привязка к&nbsp;KPI и&nbsp;к&nbsp;строкам P&amp;L.</p>
+    </div>
+
+    <div class="cards">
+      <article class="card card-tilt reveal">
+        <div class="card-icon">📉</div>
+        <h3>Снижение списаний</h3>
+        <div class="card-metric">−15…30%</div>
+        <p>Прогноз остатков и&nbsp;сроков годности подсказывает, что использовать сегодня, чтобы не&nbsp;выбросить завтра.</p>
+        <div class="card-tag">→ BIZ-01</div>
+      </article>
+
+      <article class="card card-tilt reveal" data-reveal-delay="80">
+        <div class="card-icon">🛒</div>
+        <h3>Оптимизация закупок</h3>
+        <div class="card-metric">−10…20%</div>
+        <p>Сравнение поставщиков по&nbsp;истории цен, качеству и&nbsp;срокам — готовый проект заказа за&nbsp;минуты, а&nbsp;не&nbsp;часы.</p>
+        <div class="card-tag">→ BIZ-07</div>
+      </article>
+
+      <article class="card card-tilt reveal" data-reveal-delay="160">
+        <div class="card-icon">📈</div>
+        <h3>Маржинальность меню</h3>
+        <div class="card-metric">+5…12&nbsp;п.п.</div>
+        <p>Сценарное моделирование: что будет с&nbsp;P&amp;L, если поднять цену блюда или заменить ингредиент.</p>
+        <div class="card-tag">→ BIZ-03</div>
+      </article>
+
+      <article class="card card-tilt reveal" data-reveal-delay="240">
+        <div class="card-icon">⏱</div>
+        <h3>Время управляющего</h3>
+        <div class="card-metric">+10…15 ч/нед</div>
+        <p>Утренний короткий план вместо разборок в&nbsp;Excel. Управляющий — в&nbsp;зале, а&nbsp;не&nbsp;в&nbsp;таблицах.</p>
+        <div class="card-tag">→ BIZ-04</div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ DIFFERENTIATORS ============ -->
+<section class="section section-diff">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="kicker">Чем отличается</span>
+      <h2>Это <em>не&nbsp;ещё один BI</em>. И&nbsp;не&nbsp;замена Kiepper.</h2>
+    </div>
+
+    <div class="diff-grid">
+      <div class="diff-item reveal">
+        <div class="diff-num">01</div>
+        <h4>Built on Kiepper, not against</h4>
+        <p>Мастер-данные остаются в&nbsp;вашей учётной системе. Orakul читает и&nbsp;пишет, но не&nbsp;подменяет источник истины. Внедрение — без миграции.</p>
+      </div>
+      <div class="diff-item reveal" data-reveal-delay="60">
+        <div class="diff-num">02</div>
+        <h4>Explainability over magic</h4>
+        <p>Каждая рекомендация ИИ имеет читаемое бизнес-обоснование. Если объяснить «почему» нельзя — рекомендация просто не&nbsp;показывается.</p>
+      </div>
+      <div class="diff-item reveal" data-reveal-delay="120">
+        <div class="diff-num">03</div>
+        <h4>Recommend, don't automate</h4>
+        <p>Orakul <em>предлагает</em>, человек <em>утверждает</em>. Без полной автоматизации заказов до&nbsp;тех пор, пока вы сами этому не&nbsp;поверите.</p>
+      </div>
+      <div class="diff-item reveal" data-reveal-delay="180">
+        <div class="diff-num">04</div>
+        <h4>Operator-first UX</h4>
+        <p>Сценарии под 5-минутное окно управляющего и&nbsp;закупщика в&nbsp;шуме кухни. Не&nbsp;под аналитика и&nbsp;не&nbsp;под ИТ-директора.</p>
+      </div>
+      <div class="diff-item reveal" data-reveal-delay="240">
+        <div class="diff-num">05</div>
+        <h4>Measurable or it didn't happen</h4>
+        <p>Каждая фича привязана к&nbsp;измеряемому KPI. Если вклад в&nbsp;деньги не&nbsp;считается — её просто нет в&nbsp;продукте.</p>
+      </div>
+      <div class="diff-item reveal" data-reveal-delay="300">
+        <div class="diff-num">06</div>
+        <h4>Не маркетплейс поставщиков</h4>
+        <p>Мы сравниваем прайсы, но не&nbsp;зарабатываем на&nbsp;агентских комиссиях. Никаких скрытых стимулов рекомендовать «удобного» поставщика.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ROLES ============ -->
+<section id="roles" class="section section-roles">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="kicker">Для каждой роли</span>
+      <h2>От собственника до&nbsp;шефа — каждому свой Orakul.</h2>
+      <p>Один продукт, шесть разных интерфейсов. Каждый видит то, что ему нужно для&nbsp;своего 5-минутного утреннего цикла.</p>
+    </div>
+
+    <div class="roles">
+      <article class="role reveal">
+        <div class="role-emoji">👨‍💼</div>
+        <h4>Собственник</h4>
+        <p class="role-pain">«Не понимаю, куда уходит маржа»</p>
+        <p class="role-gain">Прозрачная экономика в&nbsp;дашборде, ROI-кейс по&nbsp;точкам.</p>
+        <span class="role-emo">Контроль</span>
+      </article>
+      <article class="role reveal" data-reveal-delay="60">
+        <div class="role-emoji">🧭</div>
+        <h4>Опердир</h4>
+        <p class="role-pain">«Каждая точка живёт своей жизнью»</p>
+        <p class="role-gain">Сравнение точек, единые стандарты, KPI в&nbsp;одном окне.</p>
+        <span class="role-emo">Управляемость</span>
+      </article>
+      <article class="role reveal" data-reveal-delay="120">
+        <div class="role-emoji">🏪</div>
+        <h4>Управляющий</h4>
+        <p class="role-pain">«Опять стоп-лист, опять списания»</p>
+        <p class="role-gain">Утренний короткий план: что заказать, чего не&nbsp;хватит.</p>
+        <span class="role-emo">Спокойствие</span>
+      </article>
+      <article class="role reveal" data-reveal-delay="180">
+        <div class="role-emoji">📦</div>
+        <h4>Закупщик</h4>
+        <p class="role-pain">«Не успеваю сравнить прайсы»</p>
+        <p class="role-gain">Готовый проект заказа с&nbsp;обоснованием на&nbsp;каждой позиции.</p>
+        <span class="role-emo">Скорость</span>
+      </article>
+      <article class="role reveal" data-reveal-delay="240">
+        <div class="role-emoji">👨‍🍳</div>
+        <h4>Шеф-повар</h4>
+        <p class="role-pain">«Опять считают перерасход на&nbsp;меня»</p>
+        <p class="role-gain">Прозрачность факт vs&nbsp;норма, защита перед руководством.</p>
+        <span class="role-emo">Справедливость</span>
+      </article>
+      <article class="role reveal" data-reveal-delay="300">
+        <div class="role-emoji">📊</div>
+        <h4>Финконтролёр</h4>
+        <p class="role-pain">«Аномалии вижу через месяц»</p>
+        <p class="role-gain">Ежедневные алерты, аудит-трейл по&nbsp;каждой операции.</p>
+        <span class="role-emo">Раннее обнаружение</span>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ROI CALCULATOR STRIP ============ -->
+<section id="roi" class="section section-roi">
+  <div class="parallax-blob blob-c" data-parallax="0.3" aria-hidden="true"></div>
+  <div class="container">
+    <div class="roi-card reveal">
+      <div class="roi-left">
+        <span class="kicker light">Реальный кейс</span>
+        <h2>Сеть из&nbsp;<strong>10 точек</strong>, оборот&nbsp;40&nbsp;млн&nbsp;Br/год</h2>
+        <p>Расчёт по&nbsp;нашей методике (см.&nbsp;Business Case &amp; ROI). С&nbsp;включённым модулем сравнения поставщиков (US-04).</p>
+        <a class="btn btn-primary" href="#cta">Посчитать для&nbsp;моей сети</a>
+      </div>
+      <div class="roi-right">
+        <div class="roi-row">
+          <span>Снижение списаний</span>
+          <strong class="num" data-count="400" data-suffix=" тыс Br">0</strong>
+        </div>
+        <div class="roi-row">
+          <span>Экономия закупок</span>
+          <strong class="num" data-count="1700" data-suffix=" тыс Br">0</strong>
+        </div>
+        <div class="roi-row">
+          <span>Прирост маржи</span>
+          <strong class="num" data-count="800" data-suffix=" тыс Br">0</strong>
+        </div>
+        <div class="roi-row">
+          <span>Время управляющего</span>
+          <strong class="num" data-count="200" data-suffix=" тыс Br">0</strong>
+        </div>
+        <hr/>
+        <div class="roi-row roi-total">
+          <span>Годовая экономия</span>
+          <strong class="num num-total" data-count="2300" data-suffix=" тыс Br">0</strong>
+        </div>
+        <div class="roi-row roi-sub">
+          <span>Стоимость Orakul (год 1)</span>
+          <strong>−70 тыс&nbsp;Br</strong>
+        </div>
+        <div class="roi-row roi-payback">
+          <span>Окупаемость</span>
+          <strong>&lt; 1&nbsp;месяца</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ HOW IT WORKS ============ -->
+<section id="how" class="section section-how">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="kicker">Как это работает</span>
+      <h2>От подключения к&nbsp;Kiepper — до&nbsp;первой рекомендации за&nbsp;14&nbsp;дней.</h2>
+    </div>
+
+    <ol class="timeline">
+      <li class="t-step reveal">
+        <div class="t-dot">1</div>
+        <div class="t-body">
+          <h4>Подключаем Kiepper</h4>
+          <p>Читаем справочники, остатки, продажи, рецептуры, закупки. Без миграции данных, без замены кассы.</p>
+          <span class="t-time">День 1–3</span>
+        </div>
+      </li>
+      <li class="t-step reveal" data-reveal-delay="80">
+        <div class="t-dot">2</div>
+        <div class="t-body">
+          <h4>Baseline-замер</h4>
+          <p>Фиксируем текущие списания, food cost, среднюю маржу. Это база, от&nbsp;которой считаем эффект.</p>
+          <span class="t-time">День 4–7</span>
+        </div>
+      </li>
+      <li class="t-step reveal" data-reveal-delay="160">
+        <div class="t-dot">3</div>
+        <div class="t-body">
+          <h4>Калибровка моделей</h4>
+          <p>Учим прогноз спроса и&nbsp;аномалий на&nbsp;вашей истории. Объяснимая модель, не&nbsp;«магия».</p>
+          <span class="t-time">День 8–12</span>
+        </div>
+      </li>
+      <li class="t-step reveal" data-reveal-delay="240">
+        <div class="t-dot">4</div>
+        <div class="t-body">
+          <h4>Первые рекомендации</h4>
+          <p>Управляющий получает утренний план. Закупщик — готовый проект заказа. Финконтролёр — алерты.</p>
+          <span class="t-time">День 13–14</span>
+        </div>
+      </li>
+      <li class="t-step reveal" data-reveal-delay="320">
+        <div class="t-dot">✓</div>
+        <div class="t-body">
+          <h4>Верифицированный ROI</h4>
+          <p>Через 90&nbsp;дней — отчёт с&nbsp;финконтролёром: на&nbsp;сколько реально снизились списания и&nbsp;food cost.</p>
+          <span class="t-time">+90 дней</span>
+        </div>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- ============ ANTI-POSITIONING ============ -->
+<section class="section section-anti">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="kicker">Честно</span>
+      <h2>Чем Orakul <em>не&nbsp;является</em>.</h2>
+      <p>Чтобы вы не&nbsp;покупали кота в&nbsp;мешке.</p>
+    </div>
+    <div class="anti">
+      <div class="anti-item reveal">
+        <span class="cross">×</span>
+        <h4>Не BI / дашборд-конструктор</h4>
+        <p>Power BI и&nbsp;Metabase решают другую задачу. Мы&nbsp;— рекомендации к&nbsp;действию.</p>
+      </div>
+      <div class="anti-item reveal" data-reveal-delay="60">
+        <span class="cross">×</span>
+        <h4>Не ERP и&nbsp;не&nbsp;замена Kiepper</h4>
+        <p>Не&nbsp;пытаемся подменить учётную систему. Усиливаем её.</p>
+      </div>
+      <div class="anti-item reveal" data-reveal-delay="120">
+        <span class="cross">×</span>
+        <h4>Не «универсальный AI для&nbsp;бизнеса»</h4>
+        <p>Узкая вертикаль, узкая боль, узкие сценарии. Поэтому работает.</p>
+      </div>
+      <div class="anti-item reveal" data-reveal-delay="180">
+        <span class="cross">×</span>
+        <h4>Не маркетплейс поставщиков</h4>
+        <p>Никаких агентских комиссий. Только ваши интересы при&nbsp;сравнении прайсов.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CTA ============ -->
+<section id="cta" class="section section-cta">
+  <div class="cta-bg" aria-hidden="true">
+    <div class="orb orb-cta" data-parallax="0.3"></div>
+  </div>
+  <div class="container">
+    <div class="cta-card reveal">
+      <span class="kicker light">Готовы попробовать?</span>
+      <h2>Пилот на&nbsp;2&nbsp;точках. <em>30&nbsp;дней.</em> С&nbsp;замером эффекта.</h2>
+      <p>Подключаем Kiepper, запускаем рекомендации, через&nbsp;месяц&nbsp;— отчёт с&nbsp;финконтролёром: сколько реально сэкономили. Не&nbsp;понравится&nbsp;— расстанемся.</p>
+      <form class="cta-form" onsubmit="event.preventDefault(); this.querySelector('.cta-ok').classList.add('show'); this.querySelector('button').disabled = true;">
+        <input type="text" placeholder="Имя" required />
+        <input type="text" placeholder="Сеть / компания" required />
+        <input type="email" placeholder="E-mail" required />
+        <button type="submit" class="btn btn-primary btn-lg">Запросить пилот <span class="arrow">→</span></button>
+        <div class="cta-ok">Спасибо! С&nbsp;вами свяжутся в&nbsp;течение рабочего дня.</div>
+      </form>
+      <div class="cta-foot">
+        Или напишите напрямую: <a href="mailto:hello@orakul.ai">hello@orakul.ai</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="container footer-inner">
+    <div class="footer-brand">
+      <span class="brand-mark">
+        <svg viewBox="0 0 32 32" aria-hidden="true">
+          <circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="2" fill="none"/>
+          <circle cx="16" cy="16" r="5" fill="currentColor"/>
+        </svg>
+      </span>
+      <span>Orakul</span>
+    </div>
+    <div class="footer-text">
+      © 2026 · ИИ-советник для&nbsp;общепита поверх Kiepper. Объяснимый ИИ. Без чёрных ящиков.
+    </div>
+  </div>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>

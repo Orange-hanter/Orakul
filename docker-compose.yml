@@ -1,0 +1,49 @@
+# Orakul Pilot — local stack.
+#
+#   docker compose up -d --build         # first run / after dep changes
+#   open http://orakul.localhost         # via shared dev-proxy
+#   open http://app.localhost            # alias (shared with other projects' aliases — keep app-specific names)
+#   open http://localhost:3001           # direct, bypassing the proxy
+#
+# Requires the shared proxy to be running:
+#   (cd ~/Git/dev-proxy && docker compose up -d)
+# The proxy routes orakul.localhost → orakul-app:3001 via the dev-proxy-net network.
+#
+# Persistent data lives in ./app/data (bind mount → easy backups).
+# Auto-rebuild on `git commit` is wired by .githooks/post-commit.
+
+name: orakul
+
+networks:
+  proxy-net:
+    name: dev-proxy-net
+    external: true
+
+services:
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    image: orakul-app:latest
+    container_name: orakul-app
+    restart: unless-stopped
+    env_file:
+      - ./app/.env
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+    volumes:
+      - ./app/data:/app/data
+    ports:
+      - "3001:3001"  # direct access (optional — proxy also routes here)
+    networks:
+      proxy-net:
+        aliases:
+          - orakul-app        # what dev-proxy resolves for orakul.localhost
+          - orakul.local      # in-network DNS for other containers
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s

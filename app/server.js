@@ -62,6 +62,52 @@ function migrateStockEntries() {
 
 migrateStockEntries();
 
+// Multi-venue migration: создаёт «Точка 1» при первом запуске и проставляет
+// venueId всем существующим venue-scoped записям. Идемпотентна.
+const VENUE_SCOPED_TYPES = new Set([
+  'product',
+  'stop',
+  'stock_entry',
+  'menu_item',
+  'order',
+  'revenue_entry',
+  'fixed_expense',
+  'telegram_chat',
+]);
+
+function migrateMultiVenue() {
+  const store = loadStore();
+  let changed = false;
+
+  let defaultVenue = store.records.find(r => r.type === 'venue' && r.isDefault);
+  if (!defaultVenue) {
+    defaultVenue = {
+      id:        crypto.randomUUID(),
+      type:      'venue',
+      name:      'Точка 1',
+      isDefault: true,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    store.records.push(defaultVenue);
+    changed = true;
+  }
+
+  for (const r of store.records) {
+    if (VENUE_SCOPED_TYPES.has(r.type) && !r.venueId) {
+      r.venueId = defaultVenue.id;
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    saveStore(store);
+    console.log('✅  Multi-venue migration applied (default venue: «' + defaultVenue.name + '»)');
+  }
+}
+
+migrateMultiVenue();
+
 // ── Middleware ─────────────────────────────────────────────────────────────────
 
 app.use(cors());
@@ -96,10 +142,50 @@ app.get('/api/records', auth, (_req, res) => {
   res.json(store.records.filter(r => r.type !== 'telegram_settings').sort((a, b) => b.createdAt - a.createdAt));
 });
 
+function nextOrderNumber(store) {
+  const year = new Date().getFullYear();
+  const prefix = `ОРД-${year}-`;
+  const used = store.records
+    .filter(r => r.type === 'order' && typeof r.number === 'string' && r.number.startsWith(prefix))
+    .map(r => parseInt(r.number.slice(prefix.length), 10))
+    .filter(n => !Number.isNaN(n));
+  const next = (used.length ? Math.max(...used) : 0) + 1;
+  return `${prefix}${String(next).padStart(4, '0')}`;
+}
+
 app.post('/api/records', auth, (req, res) => {
   const store = loadStore();
   const record = { id: crypto.randomUUID(), ...req.body, createdAt: Date.now(), updatedAt: Date.now() };
+
+  if (record.type === 'order' && !record.number) {
+    record.number = nextOrderNumber(store);
+  }
+
+  // Safety net: если клиент не прислал venueId на venue-scoped запись —
+  // подставляем default. Frontend обычно делает это сам, но seed-скрипты,
+  // внешние интеграции и старые клиенты могут пропустить.
+  if (VENUE_SCOPED_TYPES.has(record.type) && !record.venueId) {
+    const fallbackVenue =
+      store.records.find(r => r.type === 'venue' && r.isDefault) ||
+      store.records.find(r => r.type === 'venue');
+    if (fallbackVenue) record.venueId = fallbackVenue.id;
+  }
+
   store.records.push(record);
+
+  if (record.type === 'supplier_item' && typeof record.price === 'number') {
+    store.records.push({
+      id: crypto.randomUUID(),
+      type: 'supplier_price_history',
+      itemId: record.id,
+      price: record.price,
+      prevPrice: null,
+      source: 'manual',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+  }
+
   saveStore(store);
   res.status(201).json(record);
 });
@@ -108,14 +194,53 @@ app.put('/api/records/:id', auth, (req, res) => {
   const store = loadStore();
   const i = store.records.findIndex(r => r.id === req.params.id);
   if (i === -1) return res.status(404).json({ error: 'Not found' });
-  store.records[i] = { ...store.records[i], ...req.body, updatedAt: Date.now() };
+
+  const prev = store.records[i];
+  const next = { ...prev, ...req.body, updatedAt: Date.now() };
+  store.records[i] = next;
+
+  if (prev.type === 'supplier_item' &&
+      typeof next.price === 'number' &&
+      prev.price !== next.price) {
+    store.records.push({
+      id: crypto.randomUUID(),
+      type: 'supplier_price_history',
+      itemId: prev.id,
+      price: next.price,
+      prevPrice: prev.price ?? null,
+      source: 'manual',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+  }
+
   saveStore(store);
-  res.json(store.records[i]);
+  res.json(next);
 });
 
 app.delete('/api/records/:id', auth, (req, res) => {
   const store = loadStore();
-  store.records = store.records.filter(r => r.id !== req.params.id);
+  const target = store.records.find(r => r.id === req.params.id);
+  if (!target) return res.json({ ok: true });
+
+  if (target.type === 'supplier') {
+    const itemIds = store.records
+      .filter(r => r.type === 'supplier_item' && r.supplierId === target.id)
+      .map(r => r.id);
+    store.records = store.records.filter(r =>
+      r.id !== target.id &&
+      !(r.type === 'supplier_item' && r.supplierId === target.id) &&
+      !(r.type === 'supplier_price_history' && itemIds.includes(r.itemId))
+    );
+  } else if (target.type === 'supplier_item') {
+    store.records = store.records.filter(r =>
+      r.id !== target.id &&
+      !(r.type === 'supplier_price_history' && r.itemId === target.id)
+    );
+  } else {
+    store.records = store.records.filter(r => r.id !== req.params.id);
+  }
+
   saveStore(store);
   res.json({ ok: true });
 });

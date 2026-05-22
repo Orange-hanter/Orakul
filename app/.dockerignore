@@ -1,0 +1,23 @@
+# Keep build context tiny: a small context = faster docker build + better cache.
+**/node_modules
+**/.DS_Store
+**/.git
+**/.gitignore
+
+# Build outputs (regenerated inside the image)
+client/dist
+
+# Local secrets — provided via docker-compose env_file at runtime
+.env
+.env.*
+!.env.example
+
+# Data is a volume — never bake it into the image
+data/
+
+# Editor / OS / misc
+*.log
+*.png
+.vscode
+.idea
+.playwright-mcp
