@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../api.js';
 import VenueSelector from './VenueSelector.jsx';
+import OnboardingChecklist from './OnboardingChecklist.jsx';
+import { isOnboardingDismissed, onboardingProgress } from '../utils/onboarding.js';
 import StopTab      from './tabs/StopTab.jsx';
 import StockTab     from './tabs/StockTab.jsx';
 import MenuTab      from './tabs/MenuTab.jsx';
@@ -49,6 +51,7 @@ export default function Main({ onLogout }) {
   const [toast,         setToast]         = useState(null);
   const [venueId,       setVenueId]       = useState(() => localStorage.getItem(VENUE_STORAGE_KEY));
   const [venueSelector, setVenueSelector] = useState(false);
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -61,6 +64,16 @@ export default function Main({ onLogout }) {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Onboarding: показываем чек-лист один раз после первой загрузки данных,
+  // если ≥1 шаг не закрыт И пользователь явно не нажимал «Не показывать».
+  useEffect(() => {
+    if (loading) return;
+    if (isOnboardingDismissed()) return;
+    const { done, total } = onboardingProgress(records);
+    if (done < total) setOnboardingOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
 
   function showToast(msg, type = 'ok') {
     setToast({ msg, type, key: Date.now() });
@@ -183,6 +196,14 @@ export default function Main({ onLogout }) {
           onUpdate={handleUpdate}
           onClose={() => setVenueSelector(false)}
           showToast={showToast}
+        />
+      )}
+
+      {onboardingOpen && (
+        <OnboardingChecklist
+          records={filteredRecords}
+          onClose={() => setOnboardingOpen(false)}
+          onJumpToTab={(t) => { setTab(t); setOnboardingOpen(false); }}
         />
       )}
 
