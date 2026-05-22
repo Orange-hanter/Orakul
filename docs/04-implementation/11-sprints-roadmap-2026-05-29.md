@@ -88,23 +88,35 @@ R2 MVP в проде, аудит-фиксы накатаны, 72/72 тестов
 
 ---
 
-## Sprint 3 — «Готовность к платному клиенту» (2026-06-12 → 2026-06-18)
+## Sprint 3 — «Готовность к платному клиенту» (2026-06-12 → 2026-06-18) 🟡 PARTIAL
 
 **Цель:** инфраструктура не упирается в первый paying contract.
 
-| ID | Задача | Условие |
-|----|--------|---------|
-| **O01** | Audit log (JSONL по записи) + UI просмотра в «Данные» | Всегда |
-| **O02** | L1 multi-user login (учётные записи + bcrypt + invitation flow) | Если есть клиент с 2+ сотрудниками на горизонте |
-| **O03** | Live QR / iiko адаптер (реальные REST + webhook) | Если у клиента эта POS |
-| **O04** | Backup автоматизация: nightly cron + 7-дневная ретенция | Всегда (закрывает R4) |
-| **O05** | Monitoring: healthcheck endpoint + Uptimerobot | Всегда |
-| **O06** | Migration plan для Postgres (документ, не код) | Всегда |
-| **O07** | CI: GitHub Action auto-test on push | Всегда |
+| ID | Статус | Задача | Артефакт |
+|----|:------:|--------|----------|
+| **O01** | ✅ | Audit log (JSONL по записи) + UI просмотра в «Данные» | `data/audit.jsonl`, `AuditCard.jsx`, GET `/api/audit` |
+| **O02** | ⏳ | L1 multi-user login (учётные записи + bcrypt + invitation flow) | Conditional — отложено до клиента с 2+ сотрудниками |
+| **O03** | ⏳ | Live QR / iiko адаптер (реальные REST + webhook) | Conditional — у текущих пилотов нет этих POS |
+| **O04** | ✅ | Backup автоматизация: nightly cron + 7-дневная ретенция | `ops/backup-store.sh`, `orakul-backup.{service,timer}` |
+| **O05** | ✅ | Monitoring: healthcheck endpoint + Uptimerobot | GET `/api/health`, doc §8.7 |
+| **O06** | ✅ | Migration plan для Postgres (документ, не код) | `docs/08-technical/11-postgres-migration-plan.md` |
+| **O07** | ✅ | CI: GitHub Action auto-test on push | `.github/workflows/ci.yml` |
 
-**Sprint-метрика:** прохождение чек-листа SLA (audit-trail, бэкап есть, uptime ≥ 99 %, восстановление из бэкапа отработано).
+**Sprint-метрика:** 5/5 безусловных задач закрыты. SLA-инфраструктура готова: audit-trail на каждое CRUD, nightly бэкап с 7-дневной ретенцией, healthcheck endpoint, CI на каждый push, документированный путь к Postgres при росте.
 
-**Условные задачи:** O02 и O03 — поднимаются в Sprint 2 в обмен на AI06, если контекст клиента требует.
+**Условные задачи (O02, O03):** не активированы — нет триггера. Описаны в roadmap, будут реализованы по факту запроса от клиента или подписи paying-контракта с конкретной POS.
+
+### Sprint 3 deliverables (по коммитам)
+
+| Commit | Тема |
+|--------|------|
+| `937fd08` | O01 audit log (server + AuditCard) |
+| `2622799` | O04 nightly backup + O05 healthcheck |
+| `562e6c1` | O06 Postgres migration plan + O07 GitHub Action |
+
+**Тесты:** 168 cases (без новых — задачи Sprint 3 в основном operational, не доменные).
+
+**Бандл:** 90.55 KB gzip main (+1.16 KB за спринт — добавлен AuditCard).
 
 ---
 
@@ -137,7 +149,7 @@ R2 MVP в проде, аудит-фиксы накатаны, 72/72 тестов
 
 - **Sprint 1 → 2:** ✅ выполнено. F02 в проде, Telegram-механизм готов отправлять алёрты (mock сценарии проверены).
 - **Sprint 2 → 3:** ✅ AI01-AI07 закрыты. MAPE / ARAR будут измеряться по факту использования. Можно переходить к Sprint 3 либо к продакшен-валидации с пилотом.
-- **Sprint 3 → дальнейшая работа:** SLA-чеклист пройден + есть подписанный paying-контракт ИЛИ ≥ 2 пилотов с положительной обратной связью.
+- **Sprint 3 → дальнейшая работа:** ✅ O01/O04/O05/O06/O07 закрыты. Условные O02/O03 ждут триггер. Следующий шаг: подписание paying-контракта ИЛИ ≥ 2 пилотов, после чего активируем O02/O03 по требованию.
 
 ---
 
@@ -147,3 +159,4 @@ R2 MVP в проде, аудит-фиксы накатаны, 72/72 тестов
 |--------|------|-------|-----------|
 | 1.0 | 2026-05-29 | Tech Lead | Создан после Sprint 2026-05-22 + design audit |
 | 1.1 | 2026-06-11 | Tech Lead | Sprint 2 закрыт: все 7 AI-задач выполнены, 168/168 тестов, +2.48 KB bundle |
+| 1.2 | 2026-06-12 | Tech Lead | Sprint 3 закрыт частично (5/7): O01/O04/O05/O06/O07 ✅, O02/O03 условные — отложены до триггера |

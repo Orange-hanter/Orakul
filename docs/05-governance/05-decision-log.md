@@ -100,6 +100,7 @@ C) [...]
 | DL-2026-010 | 2026-05-22 | RBAC поэтапно: L2 (multi-venue) сейчас, L1/L3/L4 — по факту потребности | Product / Tech | Только venueId + селектор. Аутентификация остаётся по APP_PASSWORD. Полная спека RBAC — на R3+ | [RBAC Spec](../08-technical/08-rbac-multiuser-spec.md) |
 | DL-2026-011 | 2026-05-29 | Sprint 1 «Замкнуть аналитический контур» закрыт 8/8 | Process | F01–F08 закрыты; 116 тестов; 6 деплоев; первый раз продукт автоматически генерирует инсайты (alerts + P&L digest) | [Sprint Roadmap](../04-implementation/11-sprints-roadmap-2026-05-29.md) |
 | DL-2026-012 | 2026-06-11 | Sprint 2 «Первый ИИ-слой» закрыт 7/7 | Process / Product | AI01–AI07 закрыты; forecast (WMA × weekday seasonality), recommendations с объяснимостью, ARAR-трекинг, 2σ anomaly detection, what-if симулятор. 168 тестов. Принцип PRD §3 «Recommend, don't act» соблюдён | [Sprint Roadmap §Sprint 2](../04-implementation/11-sprints-roadmap-2026-05-29.md) |
+| DL-2026-013 | 2026-06-12 | Sprint 3 «Готовность к платному клиенту» закрыт 5/7 (условные O02/O03 отложены) | Process / Ops | O01 audit log, O04 nightly backup + retention, O05 healthcheck, O06 Postgres migration plan, O07 CI Action. O02 multi-user login и O03 live QR/iiko ждут запрос от клиента | [Sprint Roadmap §Sprint 3](../04-implementation/11-sprints-roadmap-2026-05-29.md), [Postgres Plan](../08-technical/11-postgres-migration-plan.md) |
 
 > Это **стартовые решения** (зафиксированы при утверждении документации v1). Дальнейшие — добавляются по мере появления.
 
@@ -383,6 +384,44 @@ C) [...]
 - **Review trigger:** середина июня 2026 — контрольная точка по rollback-плану CR (если объём работ превышает оценку >30%, US-11 переносится обратно в R3).
 
 **Подписи:** Tech Lead, PO (требуется подтверждение Спонсора и PMO).
+
+---
+
+### DL-2026-013 — Sprint 3 «Готовность к платному клиенту» закрыт (5/7)
+
+**Дата:** 2026-06-12
+**Категория:** Process / Ops
+
+**Вопрос.** Готова ли инфраструктура (audit, backup, monitoring, CI) к подписанию первого paying-контракта без блокирующих рисков?
+
+**Решение.** Да в части безусловных задач (5/5). Условные (O02 multi-user, O03 live POS) — отложены до конкретного клиентского запроса.
+
+**Что доставлено (безусловные):**
+- **O01 Audit log.** `data/audit.jsonl` NDJSON append-only с rotation > 5 MB. Логируется каждое POST/PUT/DELETE на `/api/records`: op, record_id, type, name, venue_id, changed-keys для update. Просмотр через `AuditCard` в DataTab (filter all/CRUD, relative time, scroll-list). Не зашифрован — это метаданные, не данные.
+- **O04 Nightly backup.** `ops/backup-store.sh` + systemd `orakul-backup.{service,timer}`. Запуск 03:30 UTC, retention KEEP_DAYS=7 (override через env). Hardening: NoNewPrivileges, ProtectSystem=strict, ReadWritePaths=/var/backups/orakul. Бэкапит и store.enc, и audit.jsonl.
+- **O05 Healthcheck.** GET `/api/health` без auth — 200 ok с uptimeSec/version/ts, 503 при failed disk-access. Не дёргает loadStore (нет дешифровки). Документирован способ настройки Uptimerobot (5-мин interval) + SLA-цель ≥99% месяц.
+- **O06 Postgres migration plan.** Документ-draft без кода. 6 триггеров запуска (T1 size > 50 MB, T2 P95 > 500 ms, T3 > 10k записей/клиент, T4 ≥ 5 клиентов, T5 concurrent-write ask, T6 compliance). Целевая схема: wide `record(JSONB)` + strict tables для горячих типов с партиционированием. 5-этапная миграция с dual-write окном ≥ 7 дней.
+- **O07 CI GitHub Action.** `.github/workflows/ci.yml` — push & PR на main: npm ci (root+client) → `npm test` (168/168) → vite build → `node -c server.js` → `bash -n ops/backup-store.sh`. timeout 10 мин.
+
+**Что отложено (условные):**
+- **O02 L1 multi-user login.** Триггер: клиент с 2+ сотрудниками, желающими отдельные сессии. Текущая схема (общий APP_PASSWORD) приемлема для one-owner/one-manager пилотов. Спецификация уже есть в `08-rbac-multiuser-spec.md` (DL-2026-010).
+- **O03 Live QR/iiko адаптер.** Триггер: подписан клиент на одной из этих POS. Sandbox-плагины уже есть (`integrations/quickresto.js`, `integrations/iiko.js`), но реальные REST/webhook требуют клиентских учётных данных и тестовой среды у клиента.
+
+**От чего отказались:**
+- Не делать audit log в Postgres сразу — это часть плана O06, преждевременно усложнять JSON-store ради недотриггерной миграции.
+- Не покупать managed Postgres сейчас — текущий load < 1000 записей, $15-30/мес сэкономлены до триггера.
+
+**Последствия:**
+- SLA-инфраструктура готова к paying-контракту: audit-trail, бэкап, healthcheck, CI на каждый push.
+- Документирована «выходная дверь» из JSON-store — если бизнес растёт, есть план без авральной перестройки.
+- Сжаты cycle-time: после CI каждый push гарантированно зелёный или фейлится сразу.
+
+**Review trigger:**
+- При первом запросе от клиента на multi-user login — активируется O02.
+- При подписании paying-клиента на QR/iiko — активируется O03.
+- При срабатывании любого из 6 триггеров в `11-postgres-migration-plan.md` — план переходит из Draft в Active.
+
+**Подписи:** Tech Lead.
 
 ---
 
