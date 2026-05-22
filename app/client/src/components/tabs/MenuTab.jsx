@@ -2,9 +2,16 @@ import { useState, useMemo, useRef } from 'react';
 import Modal from '../Modal.jsx';
 import IngredientPicker from '../IngredientPicker.jsx';
 import AlphabetScroller, { firstLetter, sortLetters } from '../AlphabetScroller.jsx';
+import { computeDishEconomics } from '../../utils/dishCost.js';
+import { foodCostColor } from '../../utils/pnl.js';
+
+function fmtMoney(n) {
+  if (n === null || n === undefined || !Number.isFinite(n)) return '—';
+  return `${Number(n).toFixed(2)}`;
+}
 
 const CATEGORIES = ['Закуски', 'Салаты', 'Супы', 'Паста', 'Пицца', 'Основные блюда', 'Гарниры', 'Десерты', 'Напитки', 'Прочее'];
-const EMPTY = { name: '', category: 'Прочее', active: true, ingredients: [] };
+const EMPTY = { name: '', category: 'Прочее', active: true, sellPrice: '', ingredients: [] };
 
 export default function MenuTab({ records, loading, onCreate, onUpdate, onDelete, showToast }) {
   const [modal,        setModal]        = useState(null);
@@ -27,6 +34,16 @@ export default function MenuTab({ records, loading, onCreate, onUpdate, onDelete
     [records]
   );
 
+  // Себестоимость/маржа per dish — считаются из рецепта + текущих цен поставщиков.
+  // Поставщики НЕ venue-scoped, поэтому видны во всех точках.
+  const suppliers     = useMemo(() => records.filter(r => r.type === 'supplier'),      [records]);
+  const supplierItems = useMemo(() => records.filter(r => r.type === 'supplier_item'), [records]);
+  const economicsByDish = useMemo(() => {
+    const m = new Map();
+    dishes.forEach(d => m.set(d.id, computeDishEconomics(d, supplierItems, suppliers)));
+    return m;
+  }, [dishes, supplierItems, suppliers]);
+
   const grouped = useMemo(() => {
     const out = {};
     dishes.forEach(d => {
@@ -48,6 +65,7 @@ export default function MenuTab({ records, loading, onCreate, onUpdate, onDelete
       name: d.name,
       category: d.category,
       active: d.active,
+      sellPrice: d.sellPrice ?? '',
       ingredients: d.ingredients || [],
     });
     setModal(d);
@@ -72,11 +90,19 @@ export default function MenuTab({ records, loading, onCreate, onUpdate, onDelete
     }
     setSaving(true);
     try {
+      // Нормализуем sellPrice: пустая строка → null; число → Number
+      const sellPriceNum = form.sellPrice === '' || form.sellPrice === null
+        ? null
+        : Number(form.sellPrice);
+      const payload = {
+        ...form,
+        sellPrice: Number.isFinite(sellPriceNum) && sellPriceNum > 0 ? sellPriceNum : null,
+      };
       if (modal === 'add') {
-        await onCreate({ type: 'dish', ...form });
+        await onCreate({ type: 'dish', ...payload });
         showToast('Блюдо добавлено');
       } else {
-        await onUpdate(modal.id, form);
+        await onUpdate(modal.id, payload);
         showToast('Блюдо обновлено');
       }
       close();
@@ -111,6 +137,9 @@ export default function MenuTab({ records, loading, onCreate, onUpdate, onDelete
   function DishRow({ d }) {
     const isStopped = activeStops.has(d.id);
     const hasRecipe = (d.ingredients || []).length > 0;
+    const econ = economicsByDish.get(d.id);
+    const fcColor = econ?.foodCostPct !== null ? foodCostColor(econ?.foodCostPct) : null;
+    const hasMissing = econ?.missing?.length > 0;
     return (
       <div className={`dish-row${isStopped ? ' stopped' : ''}`} onClick={() => openEdit(d)}>
         <div className="dish-row-name" style={{ color: d.active ? 'inherit' : 'var(--neutral)', textDecoration: d.active ? 'none' : 'line-through' }}>
@@ -119,6 +148,22 @@ export default function MenuTab({ records, loading, onCreate, onUpdate, onDelete
         </div>
         <div className="dish-row-badges">
           {hasRecipe && <span className="badge badge-kpi" style={{ fontSize: 11 }} title={`${d.ingredients.length} ингредиентов`}>🧬 {d.ingredients.length}</span>}
+          {econ?.cost !== null && econ?.foodCostPct !== null && (
+            <span className="badge" style={{ fontSize: 11, background: '#f1f5f9', color: fcColor || '#475569' }}
+                  title={`Себест. ${fmtMoney(econ.cost)} BYN · Цена ${fmtMoney(econ.sellPrice)} BYN · Маржа ${fmtMoney(econ.margin)} BYN`}>
+              💰 FC {econ.foodCostPct.toFixed(0)}%
+            </span>
+          )}
+          {econ?.cost !== null && econ?.foodCostPct === null && (
+            <span className="badge badge-neutral" style={{ fontSize: 11 }} title={`Себест. ${fmtMoney(econ.cost)} BYN/порция`}>
+              💰 {fmtMoney(econ.cost)}
+            </span>
+          )}
+          {hasMissing && (
+            <span className="badge badge-pending" style={{ fontSize: 11 }} title={`Нет активного поставщика на ${econ.missing.length} ингр.`}>
+              ⚠ {econ.missing.length}
+            </span>
+          )}
           {isStopped && <span className="badge badge-negative" style={{ fontSize: 11 }}>🚫 Стоп</span>}
           {!d.active && <span className="badge badge-neutral" style={{ fontSize: 11 }}>Off</span>}
         </div>
@@ -186,11 +231,25 @@ export default function MenuTab({ records, loading, onCreate, onUpdate, onDelete
               <div className="field-hint error">Название не может быть пустым</div>
             )}
           </div>
-          <div className="form-group">
-            <label>Категория</label>
-            <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
-              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
+          <div className="form-row">
+            <div className="form-group">
+              <label>Категория</label>
+              <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
+                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Цена продажи (BYN)</label>
+              <input
+                type="number"
+                step="0.10"
+                min="0"
+                inputMode="decimal"
+                placeholder="напр. 18.50"
+                value={form.sellPrice ?? ''}
+                onChange={e => setForm({ ...form, sellPrice: e.target.value })}
+              />
+            </div>
           </div>
           <div className="form-group">
             <label>Активно в меню</label>
