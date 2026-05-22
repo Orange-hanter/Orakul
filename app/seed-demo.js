@@ -6,10 +6,11 @@
  *   • 12 товаров склада (мука, масло, мясо, овощи, кофе и пр.)
  *   • 3 поставщика с пересекающимся ассортиментом (для подсветки «дешевле у X»)
  *   • Историю цен на 3 ключевые позиции (тренды ↑↓ за последние 3 месяца)
- *   • 2 заявки в разных статусах (черновик + отправленная)
- *   • 1 принятую заявку (для P&L → попадает в себестоимость)
- *   • Выручку за последние 14 дней (для P&L → выручка)
- *   • 4 постоянных расхода (аренда, ФОТ, коммуналка, прочее)
+ *   • 3 точки с разными финансовыми профилями (флагман / мини / новая)
+ *   • 2 заявки в разных статусах (черновик + отправленная) на основной точке
+ *   • По 1 принятой заявке на каждой точке (для P&L → попадает в себестоимость)
+ *   • Выручку за последние 14 дней (per venue, разный объём)
+ *   • 4 постоянных расхода на каждой точке (аренда, ФОТ, коммуналка, прочее)
  *
  * Использование:
  *   APP_PASSWORD=xxx node seed-demo.js [--url http://localhost:3001]
@@ -71,6 +72,14 @@ async function put(id, body) {
     const err = await res.json().catch(() => ({}));
     throw new Error(`PUT failed (${res.status}): ${err.error || res.statusText}`);
   }
+  return res.json();
+}
+
+async function getRecords() {
+  const res = await fetch(`${BASE_URL}/api/records`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(`GET failed: ${res.status}`);
   return res.json();
 }
 
@@ -150,6 +159,79 @@ const CATALOG = [
 ];
 
 /*
+ * Профили точек для compare-демо. Числа подобраны так, чтобы:
+ *   • Точка 1 — зелёный профиль (FC ~27%, EBITDA положительная)
+ *   • Точка 2 — жёлтый профиль (FC ~33%)
+ *   • Точка 3 — красный профиль (FC ~43%, EBITDA отрицательная — триггер алёрта)
+ */
+const VENUE_PROFILES = [
+  {
+    name:    'Кофейня №1 (флагман)',
+    address: 'пр. Мира 12',
+    // Выручка 14 дней: ~6430 BYN. Пики в выходные.
+    revenue: [380, 420, 510, 480, 590, 720, 650, 360, 410, 530, 470, 580, 690, 640],
+    fixed: [
+      { name: 'Аренда помещения',    amount: 2200, category: 'rent'      },
+      { name: 'ФОТ (3 сотрудника)',  amount: 3800, category: 'payroll'   },
+      { name: 'Коммунальные',        amount:  320, category: 'utilities' },
+      { name: 'Эквайринг + связь',   amount:  150, category: 'other'     },
+    ],
+    receivedOrder: {
+      supplierIdx: 0,
+      items: [
+        { key: 'ООО АгроПоставка|Грудка куриная охл.',         qty: 100 },
+        { key: 'ООО АгроПоставка|Моцарелла для пиццы 2 кг',    qty: 30  },
+        { key: 'ООО АгроПоставка|Масло слив. 82.5% 5 кг',      qty: 40  },
+      ],
+      daysAgo: 4,
+      note:    'Закупка на неделю',
+    },
+  },
+  {
+    name:    'Кофейня №2 (мини)',
+    address: 'ул. Сурганова 25',
+    // Выручка ~4070 BYN.
+    revenue: [240, 260, 280, 220, 310, 380, 360, 230, 250, 290, 260, 320, 340, 330],
+    fixed: [
+      { name: 'Аренда помещения',     amount: 1500, category: 'rent'      },
+      { name: 'ФОТ (1 сотрудник)',    amount: 1800, category: 'payroll'   },
+      { name: 'Коммунальные',         amount:  180, category: 'utilities' },
+      { name: 'Эквайринг + связь',    amount:  120, category: 'other'     },
+    ],
+    receivedOrder: {
+      supplierIdx: 0,
+      items: [
+        { key: 'ООО АгроПоставка|Грудка куриная охл.',         qty: 90 },
+        { key: 'ООО АгроПоставка|Моцарелла для пиццы 2 кг',    qty: 35 },
+      ],
+      daysAgo: 3,
+      note:    'Стандарт',
+    },
+  },
+  {
+    name:    'Кофейня №3 (новая)',
+    address: 'пр. Победителей 89',
+    // Выручка ~2890 BYN — низкая, точка ещё раскручивается.
+    revenue: [150, 180, 210, 170, 230, 260, 250, 160, 180, 200, 190, 230, 260, 220],
+    fixed: [
+      { name: 'Аренда помещения',     amount: 1800, category: 'rent'      },
+      { name: 'ФОТ (1 сотрудник)',    amount: 1700, category: 'payroll'   },
+      { name: 'Коммунальные',         amount:  220, category: 'utilities' },
+      { name: 'Эквайринг + связь',    amount:  100, category: 'other'     },
+    ],
+    receivedOrder: {
+      supplierIdx: 0,
+      items: [
+        { key: 'ООО АгроПоставка|Грудка куриная охл.',         qty: 80 },
+        { key: 'ООО АгроПоставка|Моцарелла для пиццы 2 кг',    qty: 35 },
+      ],
+      daysAgo: 2,
+      note:    'Базовая закупка',
+    },
+  },
+];
+
+/*
  * История цен — для каждого item можно задать массив прошлых цен,
  * которые проигрываются «как было раньше», создавая тренд.
  * Первый элемент массива — самая старая цена, последний — текущая (не дублируется).
@@ -168,10 +250,32 @@ const PRICE_TIMELINE = {
 async function main() {
   await login();
 
-  console.log('\n📦 Создаю товары склада...');
+  console.log('\n🏢 Настраиваю точки...');
+  const existing = await getRecords();
+  const existingDefault = existing.find(r => r.type === 'venue' && r.isDefault);
+  const venueIds = [];
+
+  // Первая точка — переименовываем существующую default-точку
+  if (existingDefault) {
+    await put(existingDefault.id, { name: VENUE_PROFILES[0].name, address: VENUE_PROFILES[0].address });
+    venueIds.push(existingDefault.id);
+    console.log(`   • ${VENUE_PROFILES[0].name} (переименована из default)`);
+  } else {
+    const created = await post({ type: 'venue', name: VENUE_PROFILES[0].name, address: VENUE_PROFILES[0].address, isDefault: true });
+    venueIds.push(created.id);
+    console.log(`   • ${VENUE_PROFILES[0].name}`);
+  }
+  // Точки 2 и 3 — новые
+  for (let i = 1; i < VENUE_PROFILES.length; i++) {
+    const created = await post({ type: 'venue', name: VENUE_PROFILES[i].name, address: VENUE_PROFILES[i].address });
+    venueIds.push(created.id);
+    console.log(`   • ${VENUE_PROFILES[i].name}`);
+  }
+
+  console.log('\n📦 Создаю товары склада (на флагмане)...');
   const productMap = new Map();
   for (const p of PRODUCTS) {
-    const created = await post({ type: 'product', ...p });
+    const created = await post({ type: 'product', venueId: venueIds[0], ...p });
     productMap.set(p.name, created.id);
     console.log(`   • ${p.name}`);
   }
@@ -248,6 +352,7 @@ async function main() {
 
   await post({
     type:         'order',
+    venueId:      venueIds[0],
     supplierId:   supplierIds[0],
     supplierName: SUPPLIERS[0].name,
     status:       'draft',
@@ -257,7 +362,7 @@ async function main() {
     desiredDate:  isoDateInDays(2),
     note:         'Стандартный недельный заказ',
   });
-  console.log(`   • Черновик у АгроПоставки на ${total1.toFixed(2)} BYN`);
+  console.log(`   • [Кофейня №1] Черновик у АгроПоставки на ${total1.toFixed(2)} BYN`);
 
   // Заявка №2 — отправленная: бакалея у Козлова (демонстрирует, что мы
   // переключились на более дешёвого поставщика по муке и сахару)
@@ -280,6 +385,7 @@ async function main() {
 
   await post({
     type:         'order',
+    venueId:      venueIds[0],
     supplierId:   supplierIds[1],
     supplierName: SUPPLIERS[1].name,
     status:       'submitted',
@@ -289,88 +395,92 @@ async function main() {
     desiredDate:  isoDateInDays(3),
     note:         'Переключились с АгроПоставки — экономия ~14% на бакалее',
   });
-  console.log(`   • Отправлена Козлову на ${total2.toFixed(2)} BYN`);
+  console.log(`   • [Кофейня №1] Отправлена Козлову на ${total2.toFixed(2)} BYN`);
 
-  // Заявка №3 — принятая (для P&L): фрукты у ФрешМаркета
-  const items3 = [
-    { key: 'ООО ФрешМаркет|Помидоры розовые', qty: 15 },
-    { key: 'ООО ФрешМаркет|Огурцы гладкие',   qty: 10 },
-  ].map(({ key, qty }) => {
-    const c = CATALOG.find(c => `${SUPPLIERS[c.supplierIdx].name}|${c.itemName}` === key);
-    return {
-      itemId:    itemIds.get(key),
-      itemName:  c.itemName,
-      unit:      c.unit,
-      quantity:  qty,
-      unitPrice: c.price,
-      currency:  'BYN',
-      total:     qty * c.price,
-    };
-  });
-  const total3 = items3.reduce((s, x) => s + x.total, 0);
+  // ── Per-venue financial data (revenue + costs + fixed expenses) ────────
 
-  await post({
-    type:         'order',
-    supplierId:   supplierIds[2],
-    supplierName: SUPPLIERS[2].name,
-    status:       'received',
-    receivedAt:   Date.now() - 3 * 86_400_000, // 3 дня назад
-    items:        items3,
-    totalAmount:  total3,
-    currency:     'BYN',
-    desiredDate:  isoDateInDays(-3),
-    note:         'Принято полностью',
-  });
-  console.log(`   • Принята у ФрешМаркета на ${total3.toFixed(2)} BYN`);
-
-  console.log('\n💵 Заполняю выручку (последние 14 дней)...');
-  // Реалистичная дневная выручка для небольшой кофейни/кафе: 350–650 BYN/день
-  // с пиками в выходные.
-  const revenuePattern = [380, 420, 510, 480, 590, 720, 650, 360, 410, 530, 470, 580, 690, 640];
-  for (let i = 0; i < revenuePattern.length; i++) {
-    const date = isoDateInDays(-(revenuePattern.length - i));
-    await post({
-      type:     'revenue_entry',
-      date,
-      amount:   revenuePattern[i],
-      currency: 'BYN',
-      source:   'manual',
-      note:     '',
-    });
-  }
-  const revenueTotal = revenuePattern.reduce((s, x) => s + x, 0);
-  console.log(`   • 14 дней по 350–720 BYN/день · итого ${revenueTotal} BYN`);
-
-  console.log('\n🏠 Заполняю постоянные расходы...');
-  const fixedExpenses = [
-    { name: 'Аренда помещения',  amount: 2200, category: 'rent',      icon: '🏠' },
-    { name: 'ФОТ (2 сотрудника)', amount: 3400, category: 'payroll',   icon: '👥' },
-    { name: 'Коммунальные',      amount:  280, category: 'utilities', icon: '💡' },
-    { name: 'Эквайринг + связь', amount:  150, category: 'other',     icon: '📋' },
-  ];
   const firstDayOfMonth = (() => {
     const d = new Date(); d.setDate(1);
     return d.toISOString().slice(0, 10);
   })();
-  for (const e of fixedExpenses) {
-    await post({
-      type:      'fixed_expense',
-      name:      e.name,
-      amount:    e.amount,
-      currency:  'BYN',
-      category:  e.category,
-      startDate: firstDayOfMonth,
-      endDate:   null,
+
+  for (let i = 0; i < VENUE_PROFILES.length; i++) {
+    const profile  = VENUE_PROFILES[i];
+    const venueId  = venueIds[i];
+
+    console.log(`\n🏪 ${profile.name}:`);
+
+    // Принятая заявка (попадает в P&L себестоимость)
+    const orderItems = profile.receivedOrder.items.map(({ key, qty }) => {
+      const c = CATALOG.find(c => `${SUPPLIERS[c.supplierIdx].name}|${c.itemName}` === key);
+      if (!c) throw new Error(`Catalog item not found: ${key}`);
+      return {
+        itemId:    itemIds.get(key),
+        itemName:  c.itemName,
+        unit:      c.unit,
+        quantity:  qty,
+        unitPrice: c.price,
+        currency:  'BYN',
+        total:     qty * c.price,
+      };
     });
-    console.log(`   • ${e.icon} ${e.name}: ${e.amount} BYN/мес`);
+    const orderTotal = orderItems.reduce((s, x) => s + x.total, 0);
+    await post({
+      type:         'order',
+      venueId,
+      supplierId:   supplierIds[profile.receivedOrder.supplierIdx],
+      supplierName: SUPPLIERS[profile.receivedOrder.supplierIdx].name,
+      status:       'received',
+      receivedAt:   Date.now() - profile.receivedOrder.daysAgo * 86_400_000,
+      items:        orderItems,
+      totalAmount:  orderTotal,
+      currency:     'BYN',
+      desiredDate:  isoDateInDays(-profile.receivedOrder.daysAgo),
+      note:         profile.receivedOrder.note,
+    });
+    console.log(`   • Принятая заявка: ${orderTotal.toFixed(2)} BYN`);
+
+    // Выручка за 14 дней
+    let revenueSum = 0;
+    for (let d = 0; d < profile.revenue.length; d++) {
+      const amount = profile.revenue[d];
+      await post({
+        type:     'revenue_entry',
+        venueId,
+        date:     isoDateInDays(-(profile.revenue.length - d)),
+        amount,
+        currency: 'BYN',
+        source:   'manual',
+        note:     '',
+      });
+      revenueSum += amount;
+    }
+    console.log(`   • Выручка 14 дней: ${revenueSum} BYN`);
+
+    // Постоянные расходы
+    let fixedSum = 0;
+    for (const e of profile.fixed) {
+      await post({
+        type:      'fixed_expense',
+        venueId,
+        name:      e.name,
+        amount:    e.amount,
+        currency:  'BYN',
+        category:  e.category,
+        startDate: firstDayOfMonth,
+        endDate:   null,
+      });
+      fixedSum += e.amount;
+    }
+    console.log(`   • Постоянные расходы: ${fixedSum} BYN/мес (${profile.fixed.length} статей)`);
   }
 
   console.log('\n✅  Демо-данные загружены успешно.\n');
   console.log('   Подсказки для демо:');
-  console.log('   • Поставщики → ООО АгроПоставка → Мука в/с — тренд ▲ + аналог дешевле у Козлова');
-  console.log('   • Заявки — черновик, отправленная, принятая (попадает в P&L)');
-  console.log('   • Финансы → "7 дней" — увидите выручку, food cost, EBITDA');
-  console.log('   • Финансы → ⚙ — редактируемые выручка и расходы\n');
+  console.log('   • Поставщики → ООО АгроПоставка → Грудка/Мука — тренды + аналоги дешевле');
+  console.log('   • Заявки — черновик + отправленная на Кофейне №1');
+  console.log('   • Финансы → переключатель «Сравнение (3)» → таблица 3 точек со светофором');
+  console.log('   • Точка 3 покажет красный алёрт (FC > 38% + отрицательная EBITDA)\n');
 }
 
 function isoDateInDays(n) {
