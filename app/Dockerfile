@@ -41,6 +41,7 @@ ENV NODE_ENV=production \
 COPY --from=server-deps  --chown=orakul:orakul /build/server/node_modules ./node_modules
 COPY --from=client-build --chown=orakul:orakul /build/client/dist        ./client/dist
 COPY --chown=orakul:orakul package.json server.js crypto.js ./
+COPY --chown=orakul:orakul integrations/ ./integrations/
 
 # data/ is a volume mount — create the dir so the app can write to it.
 RUN mkdir -p /app/data && chown orakul:orakul /app/data
