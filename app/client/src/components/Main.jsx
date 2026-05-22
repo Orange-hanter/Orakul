@@ -124,6 +124,9 @@ export default function Main({ onLogout }) {
 
   const ctx = {
     records: filteredRecords,
+    allRecords: records,           // для модулей, которым нужны данные всех точек (FinanceTab сравнение)
+    venues,                        // список точек организации
+    currentVenueId: effectiveVenueId,
     loading,
     onCreate: handleCreate,
     onUpdate: handleUpdate,

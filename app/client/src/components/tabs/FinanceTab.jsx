@@ -361,13 +361,75 @@ function Row({ label, value, indent = 0, bold = false, separator = false, accent
   );
 }
 
+// ── Pure P&L computation (используется и для одной точки, и для сравнения) ──
+
+function computeVenuePnL(records, period) {
+  const start = period.start.getTime();
+  const end   = period.end.getTime();
+
+  const revenue = records
+    .filter(r => r.type === 'revenue_entry')
+    .filter(r => {
+      const d = new Date(r.date).getTime();
+      return d >= start && d <= end;
+    })
+    .reduce((s, r) => s + (Number(r.amount) || 0), 0);
+
+  const variableCosts = records
+    .filter(r => r.type === 'order' && r.status === 'received')
+    .filter(o => {
+      const ts = o.receivedAt || o.updatedAt || o.createdAt;
+      return ts >= start && ts <= end;
+    })
+    .reduce((s, o) => s + (Number(o.totalAmount) || 0), 0);
+
+  const fixedByCategoryMap = {};
+  records.filter(r => r.type === 'fixed_expense').forEach(e => {
+    const amount = fixedExpenseInPeriod(e, period.start, period.end);
+    if (amount <= 0) return;
+    const catId = e.category || 'other';
+    if (!fixedByCategoryMap[catId]) fixedByCategoryMap[catId] = { id: catId, total: 0 };
+    fixedByCategoryMap[catId].total += amount;
+  });
+  const fixedByCategory = Object.values(fixedByCategoryMap).sort((a, b) => b.total - a.total);
+  const fixedTotal = fixedByCategory.reduce((s, c) => s + c.total, 0);
+
+  const grossProfit    = revenue - variableCosts;
+  const ebitda         = grossProfit - fixedTotal;
+  const foodCostPct    = revenue > 0 ? (variableCosts / revenue) * 100 : null;
+  const grossMarginPct = revenue > 0 ? (grossProfit   / revenue) * 100 : null;
+  const ebitdaPct      = revenue > 0 ? (ebitda        / revenue) * 100 : null;
+
+  return {
+    revenue, variableCosts, fixedTotal, fixedByCategory,
+    grossProfit, ebitda,
+    foodCostPct, grossMarginPct, ebitdaPct,
+  };
+}
+
+function foodCostColor(pct) {
+  if (pct === null || pct === undefined) return null;
+  if (pct > 38) return 'var(--danger)';
+  if (pct > 32) return '#b45309';
+  return 'var(--success)';
+}
+
+function ebitdaColor(v) {
+  if (v > 0) return 'var(--success)';
+  if (v < 0) return 'var(--danger)';
+  return null;
+}
+
 // ── Main tab ─────────────────────────────────────────────────────────────────
 
-export default function FinanceTab({ records, onCreate, onUpdate, onDelete, showToast }) {
+export default function FinanceTab({ records, allRecords = [], venues = [], currentVenueId, onCreate, onUpdate, onDelete, showToast }) {
   const [periodId,     setPeriodId]     = useState('this_month');
+  const [mode,         setMode]         = useState('single'); // 'single' | 'compare'
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const period = useMemo(() => resolvePeriod(periodId), [periodId]);
+
+  // ── Single-venue mode: используем уже отфильтрованные records ───────────
 
   const revenueEntries = useMemo(
     () => records.filter(r => r.type === 'revenue_entry'),
@@ -384,63 +446,13 @@ export default function FinanceTab({ records, onCreate, onUpdate, onDelete, show
     [records]
   );
 
-  // ── Aggregations for selected period ─────────────────────────────────────
+  const pnl = useMemo(() => computeVenuePnL(records, period), [records, period]);
+  const { revenue: revenueInPeriod, variableCosts: variableCostsInPeriod,
+          fixedByCategory, fixedTotal, grossProfit, ebitda,
+          foodCostPct, grossMarginPct, ebitdaPct } = pnl;
 
-  const revenueInPeriod = useMemo(() => {
-    const start = period.start.getTime();
-    const end   = period.end.getTime();
-    return revenueEntries
-      .filter(r => {
-        const d = new Date(r.date).getTime();
-        return d >= start && d <= end;
-      })
-      .reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
-  }, [revenueEntries, period]);
-
-  const variableCostsInPeriod = useMemo(() => {
-    const start = period.start.getTime();
-    const end   = period.end.getTime();
-    return receivedOrders
-      .filter(o => {
-        const ts = o.receivedAt || o.updatedAt || o.createdAt;
-        return ts >= start && ts <= end;
-      })
-      .reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
-  }, [receivedOrders, period]);
-
-  const fixedByCategory = useMemo(() => {
-    const acc = {};
-    fixedExpenses.forEach(e => {
-      const amount = fixedExpenseInPeriod(e, period.start, period.end);
-      if (amount <= 0) return;
-      const catId = e.category || 'other';
-      if (!acc[catId]) acc[catId] = { id: catId, total: 0, items: [] };
-      acc[catId].total += amount;
-      acc[catId].items.push({ name: e.name, amount });
-    });
-    return Object.values(acc).sort((a, b) => b.total - a.total);
-  }, [fixedExpenses, period]);
-
-  const fixedTotal  = fixedByCategory.reduce((s, c) => s + c.total, 0);
-  const grossProfit = revenueInPeriod - variableCostsInPeriod;
-  const ebitda      = grossProfit - fixedTotal;
-
-  const foodCostPct   = revenueInPeriod > 0 ? (variableCostsInPeriod / revenueInPeriod) * 100 : null;
-  const grossMarginPct = revenueInPeriod > 0 ? (grossProfit         / revenueInPeriod) * 100 : null;
-  const ebitdaPct      = revenueInPeriod > 0 ? (ebitda              / revenueInPeriod) * 100 : null;
-
-  function ebitdaAccent() {
-    if (ebitda > 0) return 'var(--success)';
-    if (ebitda < 0) return 'var(--danger)';
-    return null;
-  }
-
-  function foodCostAccent() {
-    if (foodCostPct === null) return null;
-    if (foodCostPct > 38)     return 'var(--danger)';
-    if (foodCostPct > 32)     return '#b45309';
-    return 'var(--success)';
-  }
+  function ebitdaAccent()   { return ebitdaColor(ebitda); }
+  function foodCostAccent() { return foodCostColor(foodCostPct); }
 
   async function handleCreate(data) { return onCreate(data); }
   async function handleUpdate(id, data) { return onUpdate(id, data); }
@@ -448,25 +460,76 @@ export default function FinanceTab({ records, onCreate, onUpdate, onDelete, show
 
   const hasAnyData = revenueEntries.length > 0 || fixedExpenses.length > 0 || receivedOrders.length > 0;
 
+  // ── Compare-venues mode: считаем P&L для каждой точки ────────────────────
+
+  const pnlByVenue = useMemo(() => {
+    if (mode !== 'compare') return [];
+    return venues.map(v => {
+      const venueRecords = allRecords.filter(r => r.venueId === v.id);
+      return { venue: v, pnl: computeVenuePnL(venueRecords, period) };
+    });
+  }, [mode, venues, allRecords, period]);
+
+  const networkTotals = useMemo(() => {
+    if (mode !== 'compare') return null;
+    const totals = pnlByVenue.reduce((acc, x) => ({
+      revenue:       acc.revenue       + x.pnl.revenue,
+      variableCosts: acc.variableCosts + x.pnl.variableCosts,
+      fixedTotal:    acc.fixedTotal    + x.pnl.fixedTotal,
+      grossProfit:   acc.grossProfit   + x.pnl.grossProfit,
+      ebitda:        acc.ebitda        + x.pnl.ebitda,
+    }), { revenue: 0, variableCosts: 0, fixedTotal: 0, grossProfit: 0, ebitda: 0 });
+    return {
+      ...totals,
+      foodCostPct:    totals.revenue > 0 ? (totals.variableCosts / totals.revenue) * 100 : null,
+      grossMarginPct: totals.revenue > 0 ? (totals.grossProfit   / totals.revenue) * 100 : null,
+      ebitdaPct:      totals.revenue > 0 ? (totals.ebitda        / totals.revenue) * 100 : null,
+    };
+  }, [mode, pnlByVenue]);
+
+  const canCompare = venues.length >= 2;
+
   return (
     <>
-      <div style={{ padding: '12px 16px', display: 'flex', gap: 8, borderBottom: '1px solid #e2e8f0' }}>
-        <select
-          value={periodId}
-          onChange={e => setPeriodId(e.target.value)}
-          style={{ flex: 1, height: 40 }}
-        >
-          {PERIODS.map(p => (
-            <option key={p.id} value={p.id}>{p.label}</option>
-          ))}
-        </select>
-        <button
-          className="btn btn-ghost"
-          style={{ height: 40, padding: '0 14px' }}
-          onClick={() => setSettingsOpen(true)}
-        >
-          ⚙ Доходы / расходы
-        </button>
+      <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8, borderBottom: '1px solid #e2e8f0' }}>
+        {canCompare && (
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              className={`btn ${mode === 'single' ? 'btn-primary' : 'btn-ghost'}`}
+              style={{ flex: 1, height: 36, fontSize: 13 }}
+              onClick={() => setMode('single')}
+            >
+              Одна точка
+            </button>
+            <button
+              className={`btn ${mode === 'compare' ? 'btn-primary' : 'btn-ghost'}`}
+              style={{ flex: 1, height: 36, fontSize: 13 }}
+              onClick={() => setMode('compare')}
+            >
+              Сравнение ({venues.length})
+            </button>
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: 8 }}>
+          <select
+            value={periodId}
+            onChange={e => setPeriodId(e.target.value)}
+            style={{ flex: 1, height: 40 }}
+          >
+            {PERIODS.map(p => (
+              <option key={p.id} value={p.id}>{p.label}</option>
+            ))}
+          </select>
+          {mode === 'single' && (
+            <button
+              className="btn btn-ghost"
+              style={{ height: 40, padding: '0 14px' }}
+              onClick={() => setSettingsOpen(true)}
+            >
+              ⚙ Доходы / расходы
+            </button>
+          )}
+        </div>
       </div>
 
       <div style={{ padding: 16, paddingBottom: 100 }}>
@@ -474,72 +537,56 @@ export default function FinanceTab({ records, onCreate, onUpdate, onDelete, show
           {period.label}
         </div>
 
-        {!hasAnyData ? (
-          <div className="empty">
-            <div className="empty-icon">📈</div>
-            <p>Финансовых данных пока нет</p>
-            <small>Добавьте выручку и постоянные расходы через «⚙ Доходы / расходы»</small>
-          </div>
-        ) : (
-          <>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 24 }}>
-              <KpiCard
-                label="Выручка"
-                value={fmtMoney(revenueInPeriod)}
-              />
-              <KpiCard
-                label="Food Cost %"
-                value={fmtPct(foodCostPct)}
-                sub="≤ 32% — норма"
-                accent={foodCostAccent()}
-              />
-              <KpiCard
-                label="Валовая маржа"
-                value={fmtPct(grossMarginPct)}
-                sub={`${fmtMoney(grossProfit)} BYN`}
-              />
-              <KpiCard
-                label="EBITDA"
-                value={fmtMoney(ebitda)}
-                sub={fmtPct(ebitdaPct)}
-                accent={ebitdaAccent()}
-              />
+        {mode === 'single' && (
+          !hasAnyData ? (
+            <div className="empty">
+              <div className="empty-icon">📈</div>
+              <p>Финансовых данных пока нет</p>
+              <small>Добавьте выручку и постоянные расходы через «⚙ Доходы / расходы»</small>
             </div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 24 }}>
+                <KpiCard label="Выручка"        value={fmtMoney(revenueInPeriod)} />
+                <KpiCard label="Food Cost %"    value={fmtPct(foodCostPct)}    sub="≤ 32% — норма" accent={foodCostAccent()} />
+                <KpiCard label="Валовая маржа"  value={fmtPct(grossMarginPct)} sub={`${fmtMoney(grossProfit)} BYN`} />
+                <KpiCard label="EBITDA"         value={fmtMoney(ebitda)}       sub={fmtPct(ebitdaPct)} accent={ebitdaAccent()} />
+              </div>
 
-            <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 16, border: '1px solid var(--border)' }}>
-              <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--neutral)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
-                Отчёт P&L
-              </h3>
+              <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 16, border: '1px solid var(--border)' }}>
+                <h3 style={{ fontSize: 12, fontWeight: 700, color: 'var(--neutral)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
+                  Отчёт P&L
+                </h3>
+                <Row label="Выручка (ручной ввод)"  value={fmtMoney(revenueInPeriod)} indent={1} />
+                <Row label="ИТОГО ВЫРУЧКА"          value={fmtMoney(revenueInPeriod)} bold separator />
+                <Row label="Закупки (принятые заявки)" value={fmtMoney(variableCostsInPeriod)} indent={1} />
+                <Row label="ИТОГО СЕБЕСТОИМОСТЬ"      value={fmtMoney(variableCostsInPeriod)} bold />
+                <Row label="Food Cost %"               value={fmtPct(foodCostPct)} indent={1} accent={foodCostAccent()} separator />
+                <Row label="ВАЛОВАЯ ПРИБЫЛЬ"  value={fmtMoney(grossProfit)} bold accent={grossProfit > 0 ? 'var(--success)' : 'var(--danger)'} />
+                <Row label="Валовая маржа %"  value={fmtPct(grossMarginPct)} indent={1} separator />
+                {fixedByCategory.map(c => {
+                  const meta = CATEGORY_BY_ID[c.id] || CATEGORY_BY_ID.other;
+                  return (
+                    <Row key={c.id} label={`${meta.icon} ${meta.label}`} value={fmtMoney(c.total)} indent={1} />
+                  );
+                })}
+                {fixedByCategory.length === 0 && (
+                  <Row label="Постоянных расходов нет" value="—" indent={1} />
+                )}
+                <Row label="ИТОГО ПОСТОЯННЫЕ РАСХОДЫ" value={fmtMoney(fixedTotal)} bold separator />
+                <Row label="EBITDA (операц. прибыль)" value={fmtMoney(ebitda)} bold accent={ebitdaAccent()} />
+                <Row label="EBITDA %"                  value={fmtPct(ebitdaPct)} indent={1} accent={ebitdaAccent()} />
+              </div>
 
-              <Row label="Выручка (ручной ввод)"  value={fmtMoney(revenueInPeriod)} indent={1} />
-              <Row label="ИТОГО ВЫРУЧКА"          value={fmtMoney(revenueInPeriod)} bold separator />
+              <div style={{ marginTop: 16, padding: 12, background: '#fef9c3', borderRadius: 8, fontSize: 12, color: '#854d0e' }}>
+                💡 Себестоимость считается из заявок в статусе «Принята» в выбранном периоде. Постоянные расходы — пропорционально дням периода (30 дней = месячная сумма).
+              </div>
+            </>
+          )
+        )}
 
-              <Row label="Закупки (принятые заявки)" value={fmtMoney(variableCostsInPeriod)} indent={1} />
-              <Row label="ИТОГО СЕБЕСТОИМОСТЬ"      value={fmtMoney(variableCostsInPeriod)} bold />
-              <Row label="Food Cost %"               value={fmtPct(foodCostPct)} indent={1} accent={foodCostAccent()} separator />
-
-              <Row label="ВАЛОВАЯ ПРИБЫЛЬ"  value={fmtMoney(grossProfit)} bold accent={grossProfit > 0 ? 'var(--success)' : 'var(--danger)'} />
-              <Row label="Валовая маржа %"  value={fmtPct(grossMarginPct)} indent={1} separator />
-
-              {fixedByCategory.map(c => {
-                const meta = CATEGORY_BY_ID[c.id] || CATEGORY_BY_ID.other;
-                return (
-                  <Row key={c.id} label={`${meta.icon} ${meta.label}`} value={fmtMoney(c.total)} indent={1} />
-                );
-              })}
-              {fixedByCategory.length === 0 && (
-                <Row label="Постоянных расходов нет" value="—" indent={1} />
-              )}
-              <Row label="ИТОГО ПОСТОЯННЫЕ РАСХОДЫ" value={fmtMoney(fixedTotal)} bold separator />
-
-              <Row label="EBITDA (операц. прибыль)" value={fmtMoney(ebitda)} bold accent={ebitdaAccent()} />
-              <Row label="EBITDA %"                  value={fmtPct(ebitdaPct)} indent={1} accent={ebitdaAccent()} />
-            </div>
-
-            <div style={{ marginTop: 16, padding: 12, background: '#fef9c3', borderRadius: 8, fontSize: 12, color: '#854d0e' }}>
-              💡 Себестоимость считается из заявок в статусе «Принята» в выбранном периоде. Постоянные расходы — пропорционально дням периода (30 дней = месячная сумма).
-            </div>
-          </>
+        {mode === 'compare' && (
+          <CompareView pnlByVenue={pnlByVenue} totals={networkTotals} />
         )}
       </div>
 
@@ -554,6 +601,143 @@ export default function FinanceTab({ records, onCreate, onUpdate, onDelete, show
           showToast={showToast}
         />
       )}
+    </>
+  );
+}
+
+// ── Compare view ─────────────────────────────────────────────────────────────
+
+const SORT_OPTIONS = [
+  { id: 'name',        label: 'По названию (А→Я)',    dir:  1, key: x => x.venue.name },
+  { id: 'revenue',     label: 'По выручке ↓',          dir: -1, key: x => x.pnl.revenue },
+  { id: 'foodCostPct', label: 'По Food Cost % ↓',      dir: -1, key: x => x.pnl.foodCostPct ?? -Infinity },
+  { id: 'ebitda',      label: 'По EBITDA ↓',           dir: -1, key: x => x.pnl.ebitda },
+  { id: 'ebitdaPct',   label: 'По EBITDA % ↓',         dir: -1, key: x => x.pnl.ebitdaPct ?? -Infinity },
+];
+
+function CompareView({ pnlByVenue, totals }) {
+  const [sortId, setSortId] = useState('name');
+
+  if (pnlByVenue.length === 0) {
+    return (
+      <div className="empty">
+        <div className="empty-icon">🏪</div>
+        <p>Нет точек для сравнения</p>
+        <small>Добавьте вторую точку в селекторе сверху</small>
+      </div>
+    );
+  }
+
+  const sortOption = SORT_OPTIONS.find(s => s.id === sortId) || SORT_OPTIONS[0];
+  const sorted = [...pnlByVenue].sort((a, b) => {
+    const ka = sortOption.key(a);
+    const kb = sortOption.key(b);
+    if (typeof ka === 'string') return ka.localeCompare(kb, 'ru') * sortOption.dir;
+    return ((ka || 0) - (kb || 0)) * sortOption.dir;
+  });
+
+  const worstFoodCost = Math.max(...sorted
+    .map(x => x.pnl.foodCostPct)
+    .filter(v => v !== null && Number.isFinite(v))
+  );
+
+  const negativeEbitda = sorted.filter(x => x.pnl.ebitda < 0);
+
+  // Метрики строк
+  const metrics = [
+    { key: 'revenue',        label: 'Выручка',         fmt: v => fmtMoney(v) },
+    { key: 'variableCosts',  label: 'Себестоимость',   fmt: v => fmtMoney(v) },
+    { key: 'foodCostPct',    label: 'Food Cost %',     fmt: v => fmtPct(v), color: foodCostColor },
+    { key: 'grossProfit',    label: 'Валовая прибыль', fmt: v => fmtMoney(v), color: ebitdaColor },
+    { key: 'grossMarginPct', label: 'Валовая маржа %', fmt: v => fmtPct(v) },
+    { key: 'fixedTotal',     label: 'Постоянные',      fmt: v => fmtMoney(v) },
+    { key: 'ebitda',         label: 'EBITDA',          fmt: v => fmtMoney(v), color: ebitdaColor, bold: true },
+    { key: 'ebitdaPct',      label: 'EBITDA %',        fmt: v => fmtPct(v),  color: ebitdaColor, bold: true },
+  ];
+
+  // Стиль для sticky-ячейки. boxShadow создаёт «занавес» между sticky и
+  // прокручиваемой областью — без него граница теряется при горизонтальном
+  // скролле под некоторыми браузерными движками.
+  const stickyShadow = '2px 0 0 -1px var(--border), 8px 0 8px -8px rgba(15,23,42,0.12)';
+
+  return (
+    <>
+      <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 12, color: 'var(--neutral)', textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600 }}>
+          Сортировка
+        </span>
+        <select
+          value={sortId}
+          onChange={e => setSortId(e.target.value)}
+          style={{ flex: 1, maxWidth: 240, height: 36, fontSize: 13 }}
+        >
+          {SORT_OPTIONS.map(o => (
+            <option key={o.id} value={o.id}>{o.label}</option>
+          ))}
+        </select>
+      </div>
+
+      <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 100 + sorted.length * 120 + 110 }}>
+          <thead>
+            <tr>
+              <th style={{ position: 'sticky', left: 0, zIndex: 2, background: '#f8fafc', padding: '10px 12px', textAlign: 'left', fontWeight: 700, fontSize: 11, color: 'var(--neutral)', textTransform: 'uppercase', letterSpacing: 0.5, minWidth: 130, boxShadow: stickyShadow }}>
+                Метрика
+              </th>
+              {sorted.map(x => (
+                <th key={x.venue.id} style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, minWidth: 110, background: '#f8fafc' }}>
+                  {x.venue.name}
+                </th>
+              ))}
+              <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, background: '#eff6ff', minWidth: 110 }}>
+                Σ Сеть
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {metrics.map(m => (
+              <tr key={m.key} style={{ borderTop: '1px solid #f1f5f9' }}>
+                <td style={{ position: 'sticky', left: 0, zIndex: 1, background: '#fff', padding: '8px 12px', fontWeight: m.bold ? 700 : 500, color: m.bold ? 'var(--primary)' : '#374151', boxShadow: stickyShadow }}>
+                  {m.label}
+                </td>
+                {sorted.map(x => {
+                  const value = x.pnl[m.key];
+                  const color = m.color ? m.color(value) : null;
+                  return (
+                    <td key={x.venue.id} style={{ padding: '8px 12px', textAlign: 'right', fontWeight: m.bold ? 700 : 500, color: color || (m.bold ? 'var(--primary)' : '#374151') }}>
+                      {m.fmt(value)}
+                    </td>
+                  );
+                })}
+                <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, background: '#eff6ff', color: m.color ? m.color(totals?.[m.key]) || 'var(--primary)' : 'var(--primary)' }}>
+                  {m.fmt(totals?.[m.key])}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {(worstFoodCost > 38 || negativeEbitda.length > 0) && (
+        <div style={{ marginTop: 16 }}>
+          {sorted
+            .filter(x => x.pnl.foodCostPct !== null && x.pnl.foodCostPct > 38)
+            .map(x => (
+              <div key={`fc-${x.venue.id}`} style={{ padding: 12, background: '#fef2f2', borderRadius: 8, fontSize: 13, color: '#b91c1c', marginBottom: 8 }}>
+                🔴 <strong>{x.venue.name}</strong>: Food Cost {fmtPct(x.pnl.foodCostPct)} — выше нормы (порог 38%)
+              </div>
+            ))}
+          {negativeEbitda.map(x => (
+            <div key={`eb-${x.venue.id}`} style={{ padding: 12, background: '#fef2f2', borderRadius: 8, fontSize: 13, color: '#b91c1c', marginBottom: 8 }}>
+              🔴 <strong>{x.venue.name}</strong>: EBITDA отрицательная ({fmtMoney(x.pnl.ebitda)})
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{ marginTop: 16, padding: 12, background: '#fef9c3', borderRadius: 8, fontSize: 12, color: '#854d0e' }}>
+        💡 Σ Сеть — суммы по точкам; проценты пересчитаны от сетевой выручки (взвешенное среднее). Прокрутите таблицу горизонтально, если точек много.
+      </div>
     </>
   );
 }
