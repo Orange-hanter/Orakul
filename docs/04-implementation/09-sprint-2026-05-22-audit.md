@@ -73,22 +73,28 @@
 | L1 multi-user login | Пилот = один пользователь | По факту запроса |
 | Полный morph stemmer | Текущий simple-stemmer покрывает основные кейсы (90%+ матчинг точек) | По факту проблем |
 
-## Status board (обновляется по ходу)
+## Status board (финальный, 2026-05-22)
 
-| ID | Статус | Заметка |
-|----|--------|---------|
-| S01 | 🟡 in progress | — |
-| S02 | ⏳ pending | — |
-| S03 | ⏳ pending | — |
-| S04 | ⏳ pending | — |
-| S05 | ⏳ pending | — |
-| S06 | ⏳ pending | — |
-| S07 | ⏳ pending | — |
-| S08 | ⏳ pending | — |
-| S09 | ⏳ pending | — |
-| S10 | ⏳ pending | — |
-| S11 | ⏳ pending | — |
-| S12 | ⏳ pending | — |
+| ID | Статус | Артефакты |
+|----|--------|-----------|
+| S01 | ✅ done | 5 тематических коммитов (plugins, finance, fuzzy, seed, sprint-doc) |
+| S02 | ✅ done | Local e2e через docker-контейнер; 9 типов записей, плагины sync end-to-end |
+| S03 | ✅ done | 2 бага: Dockerfile не копировал integrations/; venue migration ссылалась на 'menu_item' вместо 'dish'. Оба исправлены. |
+| S04 | ✅ done | `store.enc.backup-pre-deploy-20260522-152943` (127 KB) на проде |
+| S05 | ✅ done | Деплой 11 фич + 2 fix-коммитов; миграция отработала: 175/175 products + 185/185 stock_entries получили venueId |
+| S06 | ✅ done | [pilot-app-deployment.md §3 + §8.5] обновлён: integrations/, rsync без --delete, локальный build перед релизом |
+| S07 | ⏸ defer | Нужен публичный домен (DNS не настроен для 106316.com); options: nip.io / реальный домен / self-signed |
+| S08 | ✅ done | `app.listen(PORT, '127.0.0.1', ...)` + BIND_HOST env override. Verified на проде: `LISTEN 127.0.0.1:3001`; external `:3001` returns timeout |
+| S09 | ✅ done | `withStoreLock(fn)` promise-mutex; применён в sync handlers QR + iiko |
+| S10 | ✅ done | `buildDigestText(venueId)` + per-chat фильтрация в `sendDigestToAll`; `/start` стэмпит default venue. Закрывает DL-2026-010 known limitation |
+| S11 | ✅ done | Scope-таблицы в спеках 06–10 (MVP vs Full) |
+| S12 | ✅ done | 47 unit-тестов (24 fuzzy + 23 pnl), все green; найден и исправлен off-by-one в `fixedExpenseInPeriod` (31-дневный месяц давал 32 дня). `npm test` зеро-deps через `node:test` |
+
+**Sprint gate:**
+- ✅ 11 из 12 задач закрыто; S07 (TLS) отложено с обоснованием.
+- ✅ Прод-сервер на актуальной кодовой базе (PID 14179, binding 127.0.0.1).
+- ⏸ HTTPS не настроен (требует решения по домену), но порт 3001 закрыт от внешнего мира.
+- ⏸ Пилотный демо-сценарий вживую не прогонялся (требует UI в браузере — не покрыто smoke-тестом).
 
 ## Changelog
 
