@@ -32,6 +32,7 @@ const VENUE_SCOPED_TYPES = new Set([
   'revenue_entry',
   'fixed_expense',
   'telegram_chat',
+  'recommendation_action',
 ]);
 
 const VENUE_STORAGE_KEY = 'orakul_venue_id';

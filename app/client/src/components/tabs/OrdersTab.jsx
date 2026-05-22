@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import Modal from '../Modal.jsx';
 import { nplural, plural } from '../../utils/plural.js';
+import RecommendationsView from '../RecommendationsView.jsx';
 
 const CURRENCY = 'BYN';
 
@@ -356,6 +357,8 @@ export default function OrdersTab({ records, onCreate, onUpdate, onDelete, showT
 
   return (
     <>
+      <RecommendationsView records={records} onCreate={onCreate} showToast={showToast} />
+
       <div style={{ padding: '12px 16px', display: 'flex', gap: 8, borderBottom: '1px solid #e2e8f0' }}>
         <button
           className={`btn ${filter === 'active' ? 'btn-primary' : 'btn-ghost'}`}
