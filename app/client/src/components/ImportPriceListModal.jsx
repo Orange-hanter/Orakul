@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import Modal from './Modal.jsx';
+import { nplural, plural } from '../utils/plural.js';
 
 const CURRENCY = 'BYN';
 
@@ -180,7 +181,7 @@ export default function ImportPriceListModal({ supplier, products, onClose, onCr
           <div style={{ fontSize: 14, marginBottom: 16, color: 'var(--neutral)' }}>
             Загрузите файл .xlsx, .xls или .csv с прайс-листом
           </div>
-          <button className="btn btn-primary" onClick={() => fileInputRef.current?.click()} disabled={parsing}>
+          <button className="btn btn-primary btn-block" onClick={() => fileInputRef.current?.click()} disabled={parsing}>
             {parsing ? 'Читаю файл...' : 'Выбрать файл'}
           </button>
           <input
@@ -221,7 +222,9 @@ export default function ImportPriceListModal({ supplier, products, onClose, onCr
         saveLabel={`Импортировать (${valid})`}
       >
         <div style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 14, marginBottom: 8 }}>Найдено колонок: {rows[0].length}, строк: {total}</div>
+          <div style={{ fontSize: 14, marginBottom: 8 }}>
+            Найдено: {nplural(rows[0].length, ['колонка', 'колонки', 'колонок'])}, {nplural(total, ['строка', 'строки', 'строк'])}
+          </div>
           <div style={{ fontSize: 13, color: valid === total ? 'var(--success)' : 'var(--neutral)' }}>
             Валидных строк: {valid} из {total}
             {valid < total && ' (остальные пропустим — отсутствует название или цена)'}
@@ -322,7 +325,7 @@ export default function ImportPriceListModal({ supplier, products, onClose, onCr
       <div style={{ textAlign: 'center', padding: '20px 0' }}>
         <div style={{ fontSize: 48, marginBottom: 12 }}>{progress.failed > 0 ? '⚠' : '✅'}</div>
         <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
-          Импортировано {progress.done} позиций
+          Импортировано {nplural(progress.done, ['позиция', 'позиции', 'позиций'])}
         </div>
         {progress.failed > 0 && (
           <div style={{ fontSize: 14, color: 'var(--danger)' }}>
@@ -330,7 +333,7 @@ export default function ImportPriceListModal({ supplier, products, onClose, onCr
           </div>
         )}
       </div>
-      <button className="btn btn-primary" style={{ width: '100%', marginTop: 12 }} onClick={close}>
+      <button className="btn btn-primary btn-block" style={{ marginTop: 12 }} onClick={close}>
         Готово
       </button>
     </Modal>

@@ -473,7 +473,7 @@ export default function StockTab({ records, loading, onCreate, onUpdate, onDelet
             </select>
           </div>
           {editModal && (
-            <button className="btn btn-danger" style={{ marginTop: 8 }} onClick={() => deleteProduct(editModal)}>
+            <button className="btn btn-danger btn-block" style={{ marginTop: 8 }} onClick={() => deleteProduct(editModal)}>
               Удалить продукт
             </button>
           )}

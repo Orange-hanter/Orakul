@@ -360,8 +360,12 @@ select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.o
   touch-action: manipulation;
   border: none;
   transition: opacity 0.15s, transform 0.1s;
-  width: 100%;
 }
+/* По умолчанию .btn — width: auto (по контенту). Для full-width случаев
+   используйте модификатор .btn-block. В flex-рядах с несколькими .btn
+   старый default «width:100%» вызывал баг: каждая кнопка тянула на 100%,
+   соседние flex:1 контейнеры сжимались до 0 (см. design-audit-2026-05-22). */
+.btn-block { width: 100%; }
 .btn:active { opacity: 0.85; transform: scale(0.98); }
 .btn:disabled { opacity: 0.5; pointer-events: none; }
 

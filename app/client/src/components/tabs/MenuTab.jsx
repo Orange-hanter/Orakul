@@ -4,6 +4,7 @@ import IngredientPicker from '../IngredientPicker.jsx';
 import AlphabetScroller, { firstLetter, sortLetters } from '../AlphabetScroller.jsx';
 import { computeDishEconomics } from '../../utils/dishCost.js';
 import { foodCostColor } from '../../utils/pnl.js';
+import { nplural } from '../../utils/plural.js';
 
 function fmtMoney(n) {
   if (n === null || n === undefined || !Number.isFinite(n)) return '—';
@@ -179,7 +180,7 @@ export default function MenuTab({ records, loading, onCreate, onUpdate, onDelete
     <>
       <div className="section-header" style={{ paddingRight: dishes.length > 6 ? 28 : 0 }}>
         <span className="section-title">Меню</span>
-        <span className="section-count">{dishes.length} блюд</span>
+        <span className="section-count">{nplural(dishes.length, ['блюдо', 'блюда', 'блюд'])}</span>
       </div>
 
       {dishes.length === 0 ? (
@@ -313,7 +314,7 @@ export default function MenuTab({ records, loading, onCreate, onUpdate, onDelete
             )}
             <button
               type="button"
-              className="btn btn-ghost"
+              className="btn btn-ghost btn-block"
               style={{ marginTop: 8, height: 44 }}
               onClick={() => setShowPicker(true)}
               disabled={products.length === 0}
@@ -328,7 +329,7 @@ export default function MenuTab({ records, loading, onCreate, onUpdate, onDelete
           </div>
 
           {modal !== 'add' && (
-            <button className="btn btn-danger" style={{ marginTop: 8 }} onClick={() => deleteDish(modal)}>
+            <button className="btn btn-danger btn-block" style={{ marginTop: 8 }} onClick={() => deleteDish(modal)}>
               Удалить блюдо
             </button>
           )}

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../../api.js';
 import { PLUGINS } from '../../plugins/index.js';
+import { nplural } from '../../utils/plural.js';
 
 function calcDaysLeft(productId, stockEntries, current) {
   if (!current || current <= 0) return 0;
@@ -324,7 +325,7 @@ export default function DataTab({ records, venues = [], onReload, showToast }) {
         </div>
         {dishes.length > 0 && recipePct < 100 && (
           <div style={{ fontSize: 13, color: 'var(--neutral)', marginTop: 10 }}>
-            Осталось: {dishes.length - dishesWithRecipe.length} блюд. Добавляйте рецепты постепенно — через карточку блюда в меню.
+            Осталось: {nplural(dishes.length - dishesWithRecipe.length, ['блюдо', 'блюда', 'блюд'])}. Добавляйте рецепты постепенно — через карточку блюда в меню.
           </div>
         )}
       </div>
@@ -414,7 +415,7 @@ export default function DataTab({ records, venues = [], onReload, showToast }) {
                 )}
               </div>
               <button
-                className="btn btn-primary"
+                className="btn btn-primary btn-block"
                 onClick={handleTgSaveConfig}
                 disabled={tgSavingConfig}
               >
@@ -452,7 +453,7 @@ export default function DataTab({ records, venues = [], onReload, showToast }) {
             {telegramChats.length > 0 && (
               <>
                 <div style={{ height: 12 }} />
-                <button className="btn btn-primary" onClick={handleTgTest} disabled={tgSending}>
+                <button className="btn btn-primary btn-block" onClick={handleTgTest} disabled={tgSending}>
                   {tgSending ? '…' : '▶ Тестовый дайджест'}
                 </button>
               </>
@@ -469,12 +470,12 @@ export default function DataTab({ records, venues = [], onReload, showToast }) {
       <div className="export-card">
         <h3>💾 Резервная копия</h3>
         <p>Скачайте зашифрованный файл с всеми данными. Расшифровка возможна только с мастер-паролем.</p>
-        <button className="btn btn-primary" onClick={handleExport} disabled={exporting || records.length === 0}>
+        <button className="btn btn-primary btn-block" onClick={handleExport} disabled={exporting || records.length === 0}>
           {exporting ? '…' : '⬇ Скачать .enc файл'}
         </button>
         <div style={{ height: 10 }} />
         <input ref={fileRef} type="file" accept=".enc" style={{ display: 'none' }} onChange={handleImport} />
-        <button className="btn btn-ghost" onClick={() => fileRef.current.click()} disabled={importing}>
+        <button className="btn btn-ghost btn-block" onClick={() => fileRef.current.click()} disabled={importing}>
           {importing ? '…' : '⬆ Загрузить из файла'}
         </button>
       </div>

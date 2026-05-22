@@ -122,8 +122,7 @@ export default function VenueSelector({ venues, currentVenueId, onSelect, onCrea
         )}
 
         <button
-          className="btn btn-ghost"
-          style={{ width: '100%' }}
+          className="btn btn-ghost btn-block"
           onClick={() => setVenueForm({ initial: null })}
         >
           + Добавить точку

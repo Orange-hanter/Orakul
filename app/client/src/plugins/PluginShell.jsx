@@ -258,7 +258,7 @@ export default function PluginShell({
         <button className="btn btn-primary" style={{ flex: 1 }} onClick={save} disabled={saving}>
           {saving ? '...' : 'Сохранить'}
         </button>
-        {settings && <button className="btn btn-ghost" onClick={remove}>Удалить</button>}
+        {settings && <button className="btn btn-ghost" style={{ flex: 1 }} onClick={remove}>Удалить</button>}
       </div>
 
       {settings?.active && (

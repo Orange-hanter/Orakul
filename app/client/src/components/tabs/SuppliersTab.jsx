@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import Modal from '../Modal.jsx';
 import ImportPriceListModal from '../ImportPriceListModal.jsx';
 import { findAnalogs } from '../../utils/fuzzyMatch.js';
+import { nplural } from '../../utils/plural.js';
 
 const CURRENCY = 'BYN';
 
@@ -258,8 +259,8 @@ function ItemDetailsModal({ item, supplier, supplierMap, history, analogs, onClo
       )}
 
       <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
-        <button className="btn btn-ghost" onClick={onEdit}>Редактировать</button>
-        <button className="btn btn-danger" onClick={onDelete}>Удалить</button>
+        <button className="btn btn-ghost"  style={{ flex: 1 }} onClick={onEdit}>Редактировать</button>
+        <button className="btn btn-danger" style={{ flex: 1 }} onClick={onDelete}>Удалить</button>
       </div>
     </Modal>
   );
@@ -394,7 +395,7 @@ export default function SuppliersTab({ records, onCreate, onUpdate, onDelete, sh
               {selectedSupplier.name}
             </div>
             <div style={{ fontSize: 12, color: 'var(--neutral)' }}>
-              {selectedItems.length} {selectedItems.length === 1 ? 'позиция' : 'позиций'} ·{' '}
+              {nplural(selectedItems.length, ['позиция', 'позиции', 'позиций'])} ·{' '}
               {selectedSupplier.status === 'paused' ? '⏸ Приостановлен' : '✅ Активен'}
             </div>
           </div>
@@ -552,7 +553,7 @@ export default function SuppliersTab({ records, onCreate, onUpdate, onDelete, sh
                 </div>
                 {s.contact && <div className="card-body" style={{ fontSize: 13 }}>📞 {s.contact}</div>}
                 <div className="card-footer">
-                  <span className="badge badge-neutral">{itemCount} {itemCount === 1 ? 'позиция' : 'позиций'}</span>
+                  <span className="badge badge-neutral">{nplural(itemCount, ['позиция', 'позиции', 'позиций'])}</span>
                   {(s.tags || []).map(t => (
                     <span key={t} className="badge badge-kpi">{t}</span>
                   ))}

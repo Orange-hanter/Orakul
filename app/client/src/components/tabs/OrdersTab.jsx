@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import Modal from '../Modal.jsx';
+import { nplural, plural } from '../../utils/plural.js';
 
 const CURRENCY = 'BYN';
 
@@ -93,6 +94,7 @@ function OrderWizard({ suppliers, itemsBySupplier, onClose, onSave }) {
       onSave={step === 3 ? submit : () => canNext && setStep(step + 1)}
       saveLabel={step === 3 ? 'Создать заявку' : 'Далее →'}
       saving={saving}
+      disabled={step !== 3 && !canNext}
     >
       <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
         {[1, 2, 3].map(n => (
@@ -134,7 +136,7 @@ function OrderWizard({ suppliers, itemsBySupplier, onClose, onSave }) {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 15, fontWeight: 600 }}>{s.name}</div>
                 <div style={{ fontSize: 12, color: 'var(--neutral)' }}>
-                  {(itemsBySupplier.get(s.id) || []).length} позиций
+                  {nplural((itemsBySupplier.get(s.id) || []).length, ['позиция', 'позиции', 'позиций'])}
                   {s.tags?.length ? ` · ${s.tags.join(', ')}` : ''}
                 </div>
               </div>
@@ -182,7 +184,7 @@ function OrderWizard({ suppliers, itemsBySupplier, onClose, onSave }) {
                 })}
               {selectedItems.length > 0 && (
                 <div style={{ marginTop: 16, padding: 12, background: '#f8fafc', borderRadius: 8, display: 'flex', justifyContent: 'space-between' }}>
-                  <span>{selectedItems.length} {selectedItems.length === 1 ? 'позиция' : 'позиций'}</span>
+                  <span>{nplural(selectedItems.length, ['позиция', 'позиции', 'позиций'])}</span>
                   <strong>{fmtPrice(totalAmount)}</strong>
                 </div>
               )}
@@ -221,8 +223,8 @@ function OrderWizard({ suppliers, itemsBySupplier, onClose, onSave }) {
 
       {step > 1 && (
         <button
-          className="btn btn-ghost"
-          style={{ width: '100%', marginTop: 12 }}
+          className="btn btn-ghost btn-block"
+          style={{ marginTop: 12 }}
           onClick={() => setStep(step - 1)}
         >
           ← Назад
@@ -279,18 +281,18 @@ function OrderDetail({ order, onClose, onStatusChange, onDelete }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {order.status === 'draft' && (
           <>
-            <button className="btn btn-primary" onClick={() => onStatusChange('submitted')}>📤 Отметить отправленной</button>
-            <button className="btn btn-ghost" onClick={() => onStatusChange('cancelled')}>Отменить</button>
+            <button className="btn btn-primary btn-block" onClick={() => onStatusChange('submitted')}>📤 Отметить отправленной</button>
+            <button className="btn btn-ghost btn-block"   onClick={() => onStatusChange('cancelled')}>Отменить</button>
           </>
         )}
         {order.status === 'submitted' && (
           <>
-            <button className="btn btn-primary" onClick={() => onStatusChange('received')}>✅ Поставка принята</button>
-            <button className="btn btn-ghost" onClick={() => onStatusChange('cancelled')}>Отменить</button>
+            <button className="btn btn-primary btn-block" onClick={() => onStatusChange('received')}>✅ Поставка принята</button>
+            <button className="btn btn-ghost btn-block"   onClick={() => onStatusChange('cancelled')}>Отменить</button>
           </>
         )}
         {(order.status === 'received' || order.status === 'cancelled') && (
-          <button className="btn btn-danger" onClick={onDelete}>Удалить из истории</button>
+          <button className="btn btn-danger btn-block" onClick={onDelete}>Удалить из истории</button>
         )}
       </div>
     </Modal>

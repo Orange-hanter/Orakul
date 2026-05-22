@@ -213,7 +213,7 @@ export default function SettingsModal({ revenueEntries, expenses, onClose, onCre
           ))}
         </div>
       )}
-      <button className="btn btn-ghost" style={{ width: '100%', marginBottom: 24 }} onClick={() => setRevenueForm({ initial: null })}>
+      <button className="btn btn-ghost btn-block" style={{ marginBottom: 24 }} onClick={() => setRevenueForm({ initial: null })}>
         + Добавить выручку
       </button>
 
@@ -243,7 +243,7 @@ export default function SettingsModal({ revenueEntries, expenses, onClose, onCre
           })}
         </div>
       )}
-      <button className="btn btn-ghost" style={{ width: '100%' }} onClick={() => setExpenseForm({ initial: null })}>
+      <button className="btn btn-ghost btn-block" onClick={() => setExpenseForm({ initial: null })}>
         + Добавить расход
       </button>
 

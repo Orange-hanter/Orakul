@@ -247,7 +247,7 @@ export default function FinanceTab({ records, allRecords = [], venues = [], curr
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 24 }}>
                 <KpiCard label="Выручка"        value={fmtMoney(revenueInPeriod)} />
                 <KpiCard label="Food Cost %"    value={fmtPct(foodCostPct)}    sub="≤ 32% — норма" accent={foodCostAccent()} />
-                <KpiCard label="Валовая маржа"  value={fmtPct(grossMarginPct)} sub={`${fmtMoney(grossProfit)} BYN`} />
+                <KpiCard label="Валовая маржа"  value={fmtPct(grossMarginPct)} sub={fmtMoney(grossProfit)} />
                 <KpiCard label="EBITDA"         value={fmtMoney(ebitda)}       sub={fmtPct(ebitdaPct)} accent={ebitdaAccent()} />
               </div>
 

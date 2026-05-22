@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 
-export default function Modal({ title, onClose, onSave, saveLabel = 'Сохранить', saving = false, children }) {
+export default function Modal({ title, onClose, onSave, saveLabel = 'Сохранить', saving = false, disabled = false, children }) {
   useEffect(() => {
     const handler = (e) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', handler);
@@ -24,7 +24,7 @@ export default function Modal({ title, onClose, onSave, saveLabel = 'Сохра�
         <div className="modal-footer">
           <button className="btn btn-ghost" onClick={onClose}>Отмена</button>
           {onSave && (
-            <button className="btn btn-primary" onClick={onSave} disabled={saving}>
+            <button className="btn btn-primary" onClick={onSave} disabled={saving || disabled}>
               {saving ? '...' : saveLabel}
             </button>
           )}

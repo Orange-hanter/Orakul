@@ -44,7 +44,7 @@ export default function Login({ onLogin }) {
           </div>
           <button
             type="submit"
-            className="btn btn-primary"
+            className="btn btn-primary btn-block"
             disabled={loading || !password}
           >
             {loading ? '...' : '→ Войти'}
