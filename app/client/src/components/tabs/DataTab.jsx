@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../../api.js';
+import { PLUGINS } from '../../plugins/index.js';
 
 function calcDaysLeft(productId, stockEntries, current) {
   if (!current || current <= 0) return 0;
@@ -20,7 +21,7 @@ function daysBetween(ts) {
   return Math.floor((Date.now() - ts) / 86_400_000);
 }
 
-export default function DataTab({ records, onReload, showToast }) {
+export default function DataTab({ records, venues = [], onReload, showToast }) {
   const fileRef          = useRef();
   const [exporting,      setExporting]      = useState(false);
   const [importing,      setImporting]      = useState(false);
@@ -29,6 +30,7 @@ export default function DataTab({ records, onReload, showToast }) {
   const [tgTokenInput,   setTgTokenInput]   = useState('');
   const [tgTokenTouched, setTgTokenTouched] = useState(false);
   const [tgSavingConfig, setTgSavingConfig] = useState(false);
+  const [openPluginId,   setOpenPluginId]   = useState(null);
 
   // load Telegram config status on mount
   useEffect(() => {
@@ -326,6 +328,57 @@ export default function DataTab({ records, onReload, showToast }) {
           </div>
         )}
       </div>
+
+      {/* ── Интеграции (плагины) ── */}
+      <div className="export-card">
+        <h3>🔌 Интеграции</h3>
+        <p style={{ fontSize: 13, color: 'var(--neutral)', marginBottom: 12 }}>
+          Опциональные плагины импорта данных. Каждый можно включать/отключать независимо.
+        </p>
+        {PLUGINS.map(plugin => (
+          <div
+            key={plugin.id}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              padding: 12,
+              marginBottom: 8,
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              background: '#fff',
+            }}
+          >
+            <div style={{ fontSize: 28 }}>{plugin.icon}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 600 }}>{plugin.name}</div>
+              <div style={{ fontSize: 12, color: 'var(--neutral)', marginTop: 2 }}>
+                {plugin.description}
+              </div>
+            </div>
+            <button
+              className="btn btn-ghost"
+              style={{ height: 36, padding: '0 12px', fontSize: 13 }}
+              onClick={() => setOpenPluginId(plugin.id)}
+            >
+              Настроить →
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {(() => {
+        const plugin = PLUGINS.find(p => p.id === openPluginId);
+        if (!plugin) return null;
+        const SettingsComponent = plugin.SettingsComponent;
+        return (
+          <SettingsComponent
+            venues={venues}
+            onClose={() => setOpenPluginId(null)}
+            showToast={showToast}
+          />
+        );
+      })()}
 
       {/* ── Telegram ── */}
       <div className="export-card">

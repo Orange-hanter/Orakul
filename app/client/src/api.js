@@ -45,6 +45,22 @@ export const api = {
     testDigest:   ()            => req('POST',   '/telegram/test-digest'),
   },
 
+  quickresto: {
+    getStatus:  ()      => req('GET',    '/integrations/quickresto'),
+    saveConfig: (data)  => req('POST',   '/integrations/quickresto/config', data),
+    remove:     ()      => req('DELETE', '/integrations/quickresto'),
+    test:       ()      => req('POST',   '/integrations/quickresto/test'),
+    sync:       ()      => req('POST',   '/integrations/quickresto/sync'),
+  },
+
+  iiko: {
+    getStatus:  ()      => req('GET',    '/integrations/iiko'),
+    saveConfig: (data)  => req('POST',   '/integrations/iiko/config', data),
+    remove:     ()      => req('DELETE', '/integrations/iiko'),
+    test:       ()      => req('POST',   '/integrations/iiko/test'),
+    sync:       ()      => req('POST',   '/integrations/iiko/sync'),
+  },
+
   export: async () => {
     const res = await fetch('/api/export', {
       headers: { Authorization: `Bearer ${token()}` },

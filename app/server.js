@@ -6,6 +6,15 @@ const crypto   = require('crypto');
 const fs       = require('fs');
 const path     = require('path');
 const { encrypt, decrypt } = require('./crypto');
+const quickresto = require('./integrations/quickresto');
+const iiko       = require('./integrations/iiko');
+
+// Список типов записей с секретами/конфигом плагинов — не отдаём через /api/records
+const PLUGIN_SETTINGS_TYPES = new Set([
+  'telegram_settings',
+  quickresto.SETTINGS_TYPE,
+  iiko.SETTINGS_TYPE,
+]);
 
 const app  = express();
 const PORT = process.env.PORT || 3001;
@@ -139,7 +148,7 @@ app.post('/api/auth/login', (req, res) => {
 
 app.get('/api/records', auth, (_req, res) => {
   const store = loadStore();
-  res.json(store.records.filter(r => r.type !== 'telegram_settings').sort((a, b) => b.createdAt - a.createdAt));
+  res.json(store.records.filter(r => !PLUGIN_SETTINGS_TYPES.has(r.type)).sort((a, b) => b.createdAt - a.createdAt));
 });
 
 function nextOrderNumber(store) {
@@ -476,6 +485,11 @@ app.post('/api/telegram/test-digest', auth, async (_req, res) => {
 
 // Auto-start if token is available at launch
 if (getTgToken()) startTelegram();
+
+// ── Plugins ────────────────────────────────────────────────────────────────────
+
+quickresto.register(app, { auth, loadStore, saveStore });
+iiko.register(app,       { auth, loadStore, saveStore });
 
 // ── Stats ──────────────────────────────────────────────────────────────────────
 
