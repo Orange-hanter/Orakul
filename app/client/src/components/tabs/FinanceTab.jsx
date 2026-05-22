@@ -4,21 +4,17 @@ import {
   foodCostColor,
   ebitdaColor,
 } from '../../utils/pnl.js';
+import { DAY_MS } from '../../utils/time.js';
+import { fmtMoney, fmtPct } from '../../utils/format.js';
 import SettingsModal, { CATEGORY_BY_ID } from './finance/SettingsModal.jsx';
 import CompareView from './finance/CompareView.jsx';
 import ABCMenuCard from './finance/ABCMenuCard.jsx';
 import WriteoffControlCard from './finance/WriteoffControlCard.jsx';
 
-const CURRENCY = 'BYN';
-const DAY_MS   = 86_400_000;
 // EXPENSE_CATEGORIES + CATEGORY_BY_ID живут в finance/SettingsModal.jsx
 // (re-export CATEGORY_BY_ID для рендера категорий в P&L breakdown).
 
 // ── Date helpers ─────────────────────────────────────────────────────────────
-
-function toIso(d) {
-  return new Date(d).toISOString().slice(0, 10);
-}
 
 function startOfMonth(d) {
   const x = new Date(d);
@@ -66,18 +62,7 @@ function resolvePeriod(id) {
   }
 }
 
-// ── Math ─────────────────────────────────────────────────────────────────────
-
-function fmtMoney(n, currency = CURRENCY) {
-  if (n === null || n === undefined || Number.isNaN(n)) return '—';
-  return `${Math.round(Number(n)).toLocaleString('ru')} ${currency}`;
-}
-
-function fmtPct(n) {
-  if (n === null || n === undefined || !Number.isFinite(n)) return '—';
-  return `${n.toFixed(1)}%`;
-}
-
+// fmtMoney/fmtPct → utils/format.js
 // fixedExpenseInPeriod, computeVenuePnL, foodCostColor, ebitdaColor вынесены
 // в src/utils/pnl.js для покрытия unit-тестами (см. tests/pnl.test.mjs).
 

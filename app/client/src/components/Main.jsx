@@ -3,6 +3,7 @@ import { api } from '../api.js';
 import VenueSelector from './VenueSelector.jsx';
 import OnboardingChecklist from './OnboardingChecklist.jsx';
 import { isOnboardingDismissed, onboardingProgress } from '../utils/onboarding.js';
+import SCOPED_TYPES_LIST from '@shared/scopedTypes.json';
 import StopTab      from './tabs/StopTab.jsx';
 import StockTab     from './tabs/StockTab.jsx';
 import MenuTab      from './tabs/MenuTab.jsx';
@@ -21,19 +22,9 @@ const TABS = [
   { id: 'data',      label: 'Данные',      icon: '📊' },
 ];
 
-// Записи, привязанные к точке. Должно совпадать с VENUE_SCOPED_TYPES в server.js
-const VENUE_SCOPED_TYPES = new Set([
-  'product',
-  'stop',
-  'stock_entry',
-  'dish',
-  'dish_sale',
-  'order',
-  'revenue_entry',
-  'fixed_expense',
-  'telegram_chat',
-  'recommendation_action',
-]);
+// Записи, привязанные к точке. Единый источник истины — app/shared/scopedTypes.json,
+// читается и сервером (CJS require) и клиентом (Vite alias @shared).
+const VENUE_SCOPED_TYPES = new Set(SCOPED_TYPES_LIST);
 
 const VENUE_STORAGE_KEY = 'orakul_venue_id';
 
@@ -115,6 +106,29 @@ export default function Main({ onLogout }) {
     );
   }, [records, effectiveVenueId]);
 
+  // Group records once by type — replaces ~49 records.filter(r => r.type==='X')
+  // calls scattered through tabs. Exposed via context as `byType.get('product')`.
+  // Tabs that haven't migrated yet keep working off `records` (still passed).
+  const byType = useMemo(() => {
+    const m = new Map();
+    for (const r of filteredRecords) {
+      let bucket = m.get(r.type);
+      if (!bucket) { bucket = []; m.set(r.type, bucket); }
+      bucket.push(r);
+    }
+    return m;
+  }, [filteredRecords]);
+
+  const allByType = useMemo(() => {
+    const m = new Map();
+    for (const r of records) {
+      let bucket = m.get(r.type);
+      if (!bucket) { bucket = []; m.set(r.type, bucket); }
+      bucket.push(r);
+    }
+    return m;
+  }, [records]);
+
   // ── CRUD with auto venueId injection ─────────────────────────────────
 
   async function handleCreate(data) {
@@ -139,7 +153,9 @@ export default function Main({ onLogout }) {
 
   const ctx = {
     records: filteredRecords,
-    allRecords: records,           // для модулей, которым нужны данные всех точек (FinanceTab сравнение)
+    allRecords: records,           // FinanceTab «сравнение» нуждается во всех точках
+    byType,                        // Map<type, Record[]> — venue-filtered (предпочтительно для tab'ов)
+    allByType,                     // Map<type, Record[]> — все точки
     venues,                        // список точек организации
     currentVenueId: effectiveVenueId,
     loading,

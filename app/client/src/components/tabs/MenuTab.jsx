@@ -6,18 +6,14 @@ import { computeDishEconomics } from '../../utils/dishCost.js';
 import { foodCostColor } from '../../utils/pnl.js';
 import { nplural } from '../../utils/plural.js';
 import { toIsoDate, salesInPeriod } from '../../utils/dishSales.js';
+import { fmtNumber2 as fmtMoney } from '../../utils/format.js';
 import DishSalesModal from '../DishSalesModal.jsx';
 import WhatIfPanel from '../WhatIfPanel.jsx';
-
-function fmtMoney(n) {
-  if (n === null || n === undefined || !Number.isFinite(n)) return '—';
-  return `${Number(n).toFixed(2)}`;
-}
 
 const CATEGORIES = ['Закуски', 'Салаты', 'Супы', 'Паста', 'Пицца', 'Основные блюда', 'Гарниры', 'Десерты', 'Напитки', 'Прочее'];
 const EMPTY = { name: '', category: 'Прочее', active: true, sellPrice: '', ingredients: [] };
 
-export default function MenuTab({ records, loading, onCreate, onUpdate, onDelete, showToast }) {
+export default function MenuTab({ records, byType, loading, onCreate, onUpdate, onDelete, showToast }) {
   const [modal,        setModal]        = useState(null);
   const [form,         setForm]         = useState(EMPTY);
   const [saving,       setSaving]       = useState(false);
@@ -28,22 +24,23 @@ export default function MenuTab({ records, loading, onCreate, onUpdate, onDelete
   const sectionRefs = useRef({});
 
   const dishes = useMemo(
-    () => records.filter(r => r.type === 'dish').sort((a, b) => a.name.localeCompare(b.name, 'ru')),
-    [records]
+    () => (byType?.get('dish') || []).slice().sort((a, b) => a.name.localeCompare(b.name, 'ru')),
+    [byType]
   );
 
-  const products = useMemo(() => records.filter(r => r.type === 'product'), [records]);
+  const products = useMemo(() => byType?.get('product') || [], [byType]);
   const productById = useMemo(() => new Map(products.map(p => [p.id, p])), [products]);
 
   const activeStops = useMemo(
-    () => new Set(records.filter(r => r.type === 'stop' && r.active).map(r => r.dishId)),
-    [records]
+    () => new Set((byType?.get('stop') || []).filter(r => r.active).map(r => r.dishId)),
+    [byType]
   );
 
-  // Себестоимость/маржа per dish — считаются из рецепта + текущих цен поставщиков.
-  // Поставщики НЕ venue-scoped, поэтому видны во всех точках.
-  const suppliers     = useMemo(() => records.filter(r => r.type === 'supplier'),      [records]);
-  const supplierItems = useMemo(() => records.filter(r => r.type === 'supplier_item'), [records]);
+  // Себестоимость/маржа per dish. Поставщики НЕ venue-scoped → берём из allByType
+  // через records (для multi-venue blast-radius). Но byType содержит уже venue-фильтрованные,
+  // а supplier/supplier_item — non-scoped, поэтому в byType они присутствуют целиком.
+  const suppliers     = useMemo(() => byType?.get('supplier')      || [], [byType]);
+  const supplierItems = useMemo(() => byType?.get('supplier_item') || [], [byType]);
   const economicsByDish = useMemo(() => {
     const m = new Map();
     dishes.forEach(d => m.set(d.id, computeDishEconomics(d, supplierItems, suppliers)));
@@ -51,7 +48,7 @@ export default function MenuTab({ records, loading, onCreate, onUpdate, onDelete
   }, [dishes, supplierItems, suppliers]);
 
   // Продажи блюд — для бейджа «сегодня продано N»
-  const sales = useMemo(() => records.filter(r => r.type === 'dish_sale'), [records]);
+  const sales = useMemo(() => byType?.get('dish_sale') || [], [byType]);
   const today = toIsoDate(new Date());
   const todaySalesByDish = useMemo(() => {
     const m = new Map();

@@ -1,272 +1,11 @@
 import { useState, useMemo } from 'react';
-import Modal from '../Modal.jsx';
 import ImportPriceListModal from '../ImportPriceListModal.jsx';
 import { findAnalogs } from '../../utils/fuzzyMatch.js';
 import { nplural } from '../../utils/plural.js';
-
-const CURRENCY = 'BYN';
-
-function fmtPrice(n, currency = CURRENCY) {
-  if (n === null || n === undefined || Number.isNaN(n)) return '—';
-  return `${Number(n).toFixed(2)} ${currency}`;
-}
-
-function fmtDate(ts) {
-  if (!ts) return '—';
-  return new Date(ts).toLocaleDateString('ru', { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
-function trendPct(curr, prev) {
-  if (!prev || prev === 0) return null;
-  return ((curr - prev) / prev) * 100;
-}
-
-function TrendBadge({ pct }) {
-  if (pct === null || pct === undefined) return <span className="badge badge-neutral">—</span>;
-  if (Math.abs(pct) < 0.5) return <span className="badge badge-neutral">— 0%</span>;
-  const cls = pct > 0 ? 'badge-negative' : 'badge-positive';
-  const arrow = pct > 0 ? '▲' : '▼';
-  return <span className={`badge ${cls}`}>{arrow} {Math.abs(pct).toFixed(1)}%</span>;
-}
-
-// ── Supplier form ────────────────────────────────────────────────────────────
-
-function SupplierForm({ initial, onClose, onSave }) {
-  const [name,    setName]    = useState(initial?.name    || '');
-  const [contact, setContact] = useState(initial?.contact || '');
-  const [tags,    setTags]    = useState((initial?.tags || []).join(', '));
-  const [status,  setStatus]  = useState(initial?.status  || 'active');
-  const [note,    setNote]    = useState(initial?.note    || '');
-  const [saving,  setSaving]  = useState(false);
-
-  async function submit() {
-    if (!name.trim()) return;
-    setSaving(true);
-    try {
-      await onSave({
-        type:    'supplier',
-        name:    name.trim(),
-        contact: contact.trim(),
-        tags:    tags.split(',').map(t => t.trim()).filter(Boolean),
-        status,
-        note:    note.trim(),
-      });
-      onClose();
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Modal
-      title={initial ? 'Редактировать поставщика' : 'Новый поставщик'}
-      onClose={onClose}
-      onSave={submit}
-      saving={saving}
-    >
-      <div className="form-group">
-        <label>Название</label>
-        <input value={name} onChange={e => setName(e.target.value)} placeholder="ООО АгроПоставка" autoFocus />
-      </div>
-      <div className="form-group">
-        <label>Контакт</label>
-        <input value={contact} onChange={e => setContact(e.target.value)} placeholder="Иван Петров, +375 29 123 45 67" />
-      </div>
-      <div className="form-group">
-        <label>Категории (через запятую)</label>
-        <input value={tags} onChange={e => setTags(e.target.value)} placeholder="мясо, молочка, бакалея" />
-      </div>
-      <div className="form-group">
-        <label>Статус</label>
-        <select value={status} onChange={e => setStatus(e.target.value)}>
-          <option value="active">Активен</option>
-          <option value="paused">Приостановлен</option>
-        </select>
-      </div>
-      <div className="form-group">
-        <label>Заметка</label>
-        <textarea value={note} onChange={e => setNote(e.target.value)} rows={3} />
-      </div>
-    </Modal>
-  );
-}
-
-// ── Supplier item form ───────────────────────────────────────────────────────
-
-function ItemForm({ initial, supplier, products, onClose, onSave }) {
-  const [productId, setProductId] = useState(initial?.productId || '');
-  const [itemName,  setItemName]  = useState(initial?.itemName  || '');
-  const [unit,      setUnit]      = useState(initial?.unit      || 'кг');
-  const [price,     setPrice]     = useState(initial?.price ?? '');
-  const [minQty,    setMinQty]    = useState(initial?.minQty ?? '');
-  const [deliveryDays, setDeliveryDays] = useState(initial?.deliveryDays ?? '');
-  const [saving,    setSaving]    = useState(false);
-
-  function pickProduct(pid) {
-    setProductId(pid);
-    if (pid) {
-      const p = products.find(x => x.id === pid);
-      if (p) {
-        if (!itemName.trim()) setItemName(p.name);
-        if (p.unit) setUnit(p.unit);
-      }
-    }
-  }
-
-  async function submit() {
-    if (!itemName.trim() || price === '' || Number.isNaN(Number(price))) return;
-    setSaving(true);
-    try {
-      await onSave({
-        type:         'supplier_item',
-        supplierId:   supplier.id,
-        productId:    productId || null,
-        itemName:     itemName.trim(),
-        unit:         unit.trim() || 'шт',
-        price:        Number(price),
-        currency:     CURRENCY,
-        minQty:       minQty       === '' ? null : Number(minQty),
-        deliveryDays: deliveryDays === '' ? null : Number(deliveryDays),
-      });
-      onClose();
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Modal
-      title={initial ? 'Редактировать позицию' : 'Новая позиция'}
-      onClose={onClose}
-      onSave={submit}
-      saving={saving}
-    >
-      <div className="form-group">
-        <label>Привязка к товару склада (для поиска аналогов)</label>
-        <select value={productId} onChange={e => pickProduct(e.target.value)}>
-          <option value="">— Без привязки (свободный ввод) —</option>
-          {products.map(p => (
-            <option key={p.id} value={p.id}>{p.name}</option>
-          ))}
-        </select>
-      </div>
-      <div className="form-group">
-        <label>Название у поставщика</label>
-        <input value={itemName} onChange={e => setItemName(e.target.value)} placeholder="Мука пшеничная в/с ГОСТ" />
-      </div>
-      <div className="form-row">
-        <div className="form-group">
-          <label>Цена</label>
-          <input type="number" step="0.01" inputMode="decimal" value={price} onChange={e => setPrice(e.target.value)} placeholder="1.20" />
-        </div>
-        <div className="form-group">
-          <label>Единица</label>
-          <input value={unit} onChange={e => setUnit(e.target.value)} placeholder="кг" />
-        </div>
-      </div>
-      <div className="form-row">
-        <div className="form-group">
-          <label>Мин. партия</label>
-          <input type="number" step="0.1" inputMode="decimal" value={minQty} onChange={e => setMinQty(e.target.value)} placeholder="5" />
-        </div>
-        <div className="form-group">
-          <label>Срок доставки (дней)</label>
-          <input type="number" step="1" inputMode="numeric" value={deliveryDays} onChange={e => setDeliveryDays(e.target.value)} placeholder="2" />
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
-// ── Item details modal (history + analogs) ──────────────────────────────────
-
-function ItemDetailsModal({ item, supplier, supplierMap, history, analogs, onClose, onEdit, onDelete }) {
-  const sortedHistory = [...history].sort((a, b) => b.createdAt - a.createdAt);
-
-  return (
-    <Modal title={item.itemName} onClose={onClose}>
-      <div style={{ marginBottom: 16, fontSize: 13, color: 'var(--neutral)' }}>
-        Поставщик: <strong>{supplier?.name || '—'}</strong>
-      </div>
-
-      <div className="form-row" style={{ marginBottom: 20 }}>
-        <div>
-          <div style={{ fontSize: 11, color: 'var(--neutral)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Цена</div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>{fmtPrice(item.price, item.currency)}</div>
-          <div style={{ fontSize: 13, color: 'var(--neutral)' }}>за {item.unit}</div>
-        </div>
-        <div>
-          <div style={{ fontSize: 11, color: 'var(--neutral)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Мин. партия</div>
-          <div style={{ fontSize: 16, fontWeight: 600, marginTop: 4 }}>{item.minQty ?? '—'} {item.minQty ? item.unit : ''}</div>
-          <div style={{ fontSize: 13, color: 'var(--neutral)' }}>доставка {item.deliveryDays ?? '—'} дн.</div>
-        </div>
-      </div>
-
-      <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 8, color: 'var(--neutral)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-        История цен
-      </h3>
-      {sortedHistory.length === 0 ? (
-        <div style={{ fontSize: 13, color: 'var(--neutral)', marginBottom: 20 }}>Истории пока нет.</div>
-      ) : (
-        <div style={{ marginBottom: 20 }}>
-          {sortedHistory.map(h => {
-            const pct = trendPct(h.price, h.prevPrice);
-            return (
-              <div key={h.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 600 }}>{fmtPrice(h.price, item.currency)}</div>
-                  <div style={{ fontSize: 12, color: 'var(--neutral)' }}>{fmtDate(h.createdAt)}</div>
-                </div>
-                <TrendBadge pct={pct} />
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 8, color: 'var(--neutral)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-        Аналоги у других поставщиков
-      </h3>
-      {analogs.length === 0 ? (
-        <div style={{ fontSize: 13, color: 'var(--neutral)', marginBottom: 20 }}>
-          {item.productId
-            ? 'Других поставщиков на эту позицию пока нет.'
-            : 'Похожих позиций не нашлось. Привяжите к товару склада, чтобы расширить поиск.'}
-        </div>
-      ) : (
-        <div style={{ marginBottom: 20 }}>
-          {analogs.map(a => {
-            const diff = trendPct(a.price, item.price);
-            const matchBadge = a._matchExact
-              ? <span className="badge badge-positive" style={{ fontSize: 10 }}>🎯 точное</span>
-              : <span className="badge badge-neutral"  style={{ fontSize: 10 }}>~ {Math.round(a._matchSimilarity * 100)}%</span>;
-            return (
-              <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #f1f5f9', gap: 8 }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 14, fontWeight: 600 }}>{supplierMap.get(a.supplierId)?.name || '—'}</span>
-                    {matchBadge}
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--neutral)' }}>
-                    {a.itemName} · {fmtPrice(a.price, a.currency)} / {a.unit}
-                  </div>
-                </div>
-                <TrendBadge pct={diff} />
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
-        <button className="btn btn-ghost"  style={{ flex: 1 }} onClick={onEdit}>Редактировать</button>
-        <button className="btn btn-danger" style={{ flex: 1 }} onClick={onDelete}>Удалить</button>
-      </div>
-    </Modal>
-  );
-}
-
-// ── Main tab ─────────────────────────────────────────────────────────────────
+import { fmtPrice } from '../../utils/format.js';
+import SupplierForm from '../suppliers/SupplierForm.jsx';
+import ItemForm from '../suppliers/ItemForm.jsx';
+import ItemDetailsModal, { TrendBadge, trendPct } from '../suppliers/ItemDetailsModal.jsx';
 
 export default function SuppliersTab({ records, onCreate, onUpdate, onDelete, showToast }) {
   const [selectedSupplierId, setSelectedSupplierId] = useState(null);
@@ -324,18 +63,27 @@ export default function SuppliersTab({ records, onCreate, onUpdate, onDelete, sh
     );
   }, [suppliers, search]);
 
-  // Аналоги: сначала точные (productId), затем fuzzy по названию.
-  // Возвращаем supplier_item с добавленными _matchSimilarity / _matchExact.
-  function itemAnalogs(item) {
+  // Pre-compute analogs once per (items, suppliers) snapshot — был N²-проход
+  // на каждый рендер из-за вызова из selectedItems.map. Теперь — Map<itemId, analogs>.
+  const analogsByItemId = useMemo(() => {
     const candidatePool = items.filter(i =>
       supplierMap.get(i.supplierId)?.status !== 'paused'
     );
-    return findAnalogs(item, candidatePool, { threshold: 0.3, sameUnit: true })
-      .map(x => ({
-        ...x.item,
-        _matchSimilarity: x.similarity,
-        _matchExact:      x.exact,
-      }));
+    const m = new Map();
+    for (const it of items) {
+      const analogs = findAnalogs(it, candidatePool, { threshold: 0.3, sameUnit: true })
+        .map(x => ({
+          ...x.item,
+          _matchSimilarity: x.similarity,
+          _matchExact:      x.exact,
+        }));
+      m.set(it.id, analogs);
+    }
+    return m;
+  }, [items, supplierMap]);
+
+  function itemAnalogs(item) {
+    return analogsByItemId.get(item.id) || [];
   }
 
   function itemHistory(itemId) {
@@ -432,8 +180,7 @@ export default function SuppliersTab({ records, onCreate, onUpdate, onDelete, sh
               .map(it => {
                 const trend  = itemTrend(it);
                 const analog = itemAnalogs(it);
-                // Inline-подсказка — только высоко-уверенные совпадения, чтобы
-                // не вводить пользователя в заблуждение ложным «дешевле».
+                // Inline cheaper-than hint только для уверенных совпадений.
                 const cheaper = analog.find(a =>
                   a.price < it.price && (a._matchExact || a._matchSimilarity >= 0.7)
                 );

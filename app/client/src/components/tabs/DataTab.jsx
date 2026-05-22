@@ -1,12 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { api } from '../../api.js';
-import { PLUGINS } from '../../plugins/index.js';
+import { useMemo } from 'react';
 import { nplural } from '../../utils/plural.js';
+import { DAY_MS, daysBetween } from '../../utils/time.js';
 import AuditCard from '../AuditCard.jsx';
+import TelegramCard from '../data/TelegramCard.jsx';
+import IntegrationsCard from '../data/IntegrationsCard.jsx';
+import ExportImportCard from '../data/ExportImportCard.jsx';
 
 function calcDaysLeft(productId, stockEntries, current) {
   if (!current || current <= 0) return 0;
-  const cutoff = Date.now() - 14 * 86_400_000;
+  const cutoff = Date.now() - 14 * DAY_MS;
   const outflow = stockEntries
     .filter(e => e.productId === productId && e.createdAt >= cutoff && e.delta !== null)
     .filter(e => e.kind === 'writeoff' || (e.kind === 'inventory' && e.delta < 0))
@@ -19,28 +21,7 @@ function pct(n, total) {
   return total ? Math.round((n / total) * 100) : 0;
 }
 
-function daysBetween(ts) {
-  return Math.floor((Date.now() - ts) / 86_400_000);
-}
-
 export default function DataTab({ records, venues = [], onReload, showToast }) {
-  const fileRef          = useRef();
-  const [exporting,      setExporting]      = useState(false);
-  const [importing,      setImporting]      = useState(false);
-  const [tgSending,      setTgSending]      = useState(false);
-  const [tgConfigured,   setTgConfigured]   = useState(null);   // null = loading
-  const [tgTokenInput,   setTgTokenInput]   = useState('');
-  const [tgTokenTouched, setTgTokenTouched] = useState(false);
-  const [tgSavingConfig, setTgSavingConfig] = useState(false);
-  const [openPluginId,   setOpenPluginId]   = useState(null);
-
-  // load Telegram config status on mount
-  useEffect(() => {
-    api.telegram.getConfig()
-      .then(({ configured }) => setTgConfigured(configured))
-      .catch(() => setTgConfigured(false));
-  }, []);
-
   // ── KPI calculations ────────────────────────────────────────────────────────
 
   const metrics = useMemo(() => {
@@ -54,7 +35,7 @@ export default function DataTab({ records, venues = [], onReload, showToast }) {
     const recipePct = dishes.length ? pct(dishesWithRecipe.length, dishes.length) : 0;
 
     // Stop frequency per dish (last 30 days)
-    const cutoff = Date.now() - 30 * 86_400_000;
+    const cutoff = Date.now() - 30 * DAY_MS;
     const recentStops = allStops.filter(s => s.createdAt >= cutoff);
     const freq = {};
     recentStops.forEach(s => { freq[s.dishName] = (freq[s.dishName] || 0) + 1; });
@@ -73,18 +54,24 @@ export default function DataTab({ records, venues = [], onReload, showToast }) {
     const lastStockTs  = stockEntries.length ? Math.max(...stockEntries.map(e => e.createdAt)) : null;
     const stockAgeDays = lastStockTs ? daysBetween(lastStockTs) : null;
 
-    // Products with no recent data (>2 days)
+    // Products with no recent data (>2 days). Avoid inner sort per product:
+    // build a Map<productId, latestTs> in one pass.
+    const lastTsByProduct = new Map();
+    for (const e of stockEntries) {
+      const cur = lastTsByProduct.get(e.productId);
+      if (cur === undefined || cur < e.createdAt) lastTsByProduct.set(e.productId, e.createdAt);
+    }
     const staleProducts = products.filter(p => {
-      const last = stockEntries.filter(e => e.productId === p.id).sort((a, b) => b.createdAt - a.createdAt)[0];
-      return !last || daysBetween(last.createdAt) > 2;
+      const ts = lastTsByProduct.get(p.id);
+      return ts === undefined || daysBetween(ts) > 2;
     });
 
     // Average stops per day (last 7 days)
-    const week    = Date.now() - 7 * 86_400_000;
+    const week    = Date.now() - 7 * DAY_MS;
     const weekStops = allStops.filter(s => s.createdAt >= week).length;
     const avgStopsPerDay = (weekStops / 7).toFixed(1);
 
-    // Days-to-depletion alerts
+    // Days-to-depletion alerts. Reuse latest-entry map.
     const entryByProduct = new Map();
     stockEntries.forEach(e => {
       const cur = entryByProduct.get(e.productId);
@@ -107,94 +94,7 @@ export default function DataTab({ records, venues = [], onReload, showToast }) {
     return { activeStops, topStops, availability, availableDishes, activeDishes, lastStockTs, stockAgeDays, staleProducts, products, avgStopsPerDay, allStops, dishes, dishesWithRecipe, recipePct, depletionAlerts, telegramChats };
   }, [records]);
 
-  // ── Telegram ────────────────────────────────────────────────────────────────
-
-  const tgTokenValid = /^\d+:[A-Za-z0-9_-]{35,}$/.test(tgTokenInput);
-  const tgTokenError = tgTokenTouched && tgTokenInput && !tgTokenValid;
-
-  async function handleTgSaveConfig() {
-    setTgTokenTouched(true);
-    if (!tgTokenInput.trim() || !tgTokenValid) return;
-    setTgSavingConfig(true);
-    try {
-      await api.telegram.saveConfig(tgTokenInput.trim());
-      setTgConfigured(true);
-      setTgTokenInput('');
-      showToast('Бот подключён ✓');
-      await onReload();
-    } catch (e) {
-      showToast(e.message, 'error');
-    } finally {
-      setTgSavingConfig(false);
-    }
-  }
-
-  async function handleTgDeleteConfig() {
-    if (!confirm('Отключить Telegram-бота и удалить токен?')) return;
-    try {
-      await api.telegram.deleteConfig();
-      setTgConfigured(false);
-      showToast('Токен удалён');
-      await onReload();
-    } catch (e) {
-      showToast(e.message, 'error');
-    }
-  }
-
-  async function handleTgTest() {
-    setTgSending(true);
-    try {
-      await api.telegram.testDigest();
-      showToast('Дайджест отправлен во все подключённые чаты ✓');
-    } catch (e) {
-      showToast(e.message, 'error');
-    } finally {
-      setTgSending(false);
-    }
-  }
-
-  async function handleTgRemove(id) {
-    try {
-      await api.records.remove(id);
-      await onReload();
-      showToast('Чат отключён');
-    } catch (e) {
-      showToast(e.message, 'error');
-    }
-  }
-
-  // ── Export / Import ─────────────────────────────────────────────────────────
-
-  async function handleExport() {
-    setExporting(true);
-    try {
-      await api.export();
-      showToast('Файл скачан ✓');
-    } catch (e) {
-      showToast(e.message, 'error');
-    } finally {
-      setExporting(false);
-    }
-  }
-
-  async function handleImport(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImporting(true);
-    try {
-      const text = await file.text();
-      const { count } = await api.import(text);
-      showToast(`Импортировано ${count} записей ✓`);
-      await onReload();
-    } catch (err) {
-      showToast(err.message, 'error');
-    } finally {
-      setImporting(false);
-      fileRef.current.value = '';
-    }
-  }
-
-  const { activeStops, topStops, availability, availableDishes, activeDishes, lastStockTs, stockAgeDays, staleProducts, products, avgStopsPerDay, allStops, dishes, dishesWithRecipe, recipePct, depletionAlerts, telegramChats } = metrics;
+  const { activeStops, topStops, availability, availableDishes, activeDishes, stockAgeDays, staleProducts, products, avgStopsPerDay, allStops, dishes, dishesWithRecipe, recipePct, depletionAlerts, telegramChats } = metrics;
 
   return (
     <>
@@ -331,155 +231,11 @@ export default function DataTab({ records, venues = [], onReload, showToast }) {
         )}
       </div>
 
-      {/* ── Интеграции (плагины) ── */}
-      <div className="export-card">
-        <h3>🔌 Интеграции</h3>
-        <p style={{ fontSize: 13, color: 'var(--neutral)', marginBottom: 12 }}>
-          Опциональные плагины импорта данных. Каждый можно включать/отключать независимо.
-        </p>
-        {PLUGINS.map(plugin => (
-          <div
-            key={plugin.id}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-              padding: 12,
-              marginBottom: 8,
-              border: '1px solid var(--border)',
-              borderRadius: 8,
-              background: '#fff',
-            }}
-          >
-            <div style={{ fontSize: 28 }}>{plugin.icon}</div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 600 }}>{plugin.name}</div>
-              <div style={{ fontSize: 12, color: 'var(--neutral)', marginTop: 2 }}>
-                {plugin.description}
-              </div>
-            </div>
-            <button
-              className="btn btn-ghost"
-              style={{ height: 36, padding: '0 12px', fontSize: 13 }}
-              onClick={() => setOpenPluginId(plugin.id)}
-            >
-              Настроить →
-            </button>
-          </div>
-        ))}
-      </div>
+      <IntegrationsCard venues={venues} showToast={showToast} />
 
-      {(() => {
-        const plugin = PLUGINS.find(p => p.id === openPluginId);
-        if (!plugin) return null;
-        const SettingsComponent = plugin.SettingsComponent;
-        return (
-          <SettingsComponent
-            venues={venues}
-            onClose={() => setOpenPluginId(null)}
-            showToast={showToast}
-          />
-        );
-      })()}
+      <TelegramCard telegramChats={telegramChats} onReload={onReload} showToast={showToast} />
 
-      {/* ── Telegram ── */}
-      <div className="export-card">
-        <h3>✈️ Telegram-уведомления</h3>
-
-        {tgConfigured === null && (
-          <div style={{ fontSize: 14, color: 'var(--neutral)' }}>Загрузка…</div>
-        )}
-
-        {tgConfigured === false && (
-          <div className="tg-setup">
-            <p className="tg-setup-hint">
-              Подключи бота — и каждый день в 09:00 в выбранные чаты будет приходить дайджест склада.
-            </p>
-            <ol className="tg-steps">
-              <li>Открой <strong>@BotFather</strong> в Telegram → <code>/newbot</code> → скопируй токен</li>
-              <li>Вставь токен ниже и нажми «Подключить»</li>
-              <li>Напиши своему боту <strong>/start</strong> — чат зарегистрируется автоматически</li>
-            </ol>
-            <div className="tg-token-form">
-              <div>
-                <input
-                  type="text"
-                  placeholder="1234567890:ABCdefGHIjklMNOpqrSTUvwxYZ"
-                  value={tgTokenInput}
-                  onChange={e => { setTgTokenInput(e.target.value); }}
-                  onBlur={() => setTgTokenTouched(true)}
-                  onKeyDown={e => e.key === 'Enter' && handleTgSaveConfig()}
-                  className={tgTokenError ? 'input-error' : ''}
-                />
-                {tgTokenError && (
-                  <div className="field-hint error tg-token-hint">Формат: 1234567890:ABCdef… (цифры, двоеточие, минимум 35 символов после)</div>
-                )}
-              </div>
-              <button
-                className="btn btn-primary btn-block"
-                onClick={handleTgSaveConfig}
-                disabled={tgSavingConfig}
-              >
-                {tgSavingConfig ? 'Проверяю…' : 'Подключить'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {tgConfigured === true && (
-          <>
-            <div className="tg-status">
-              <span className="tg-dot" /> Бот подключён
-              <button className="tg-remove" style={{ marginLeft: 'auto' }} onClick={handleTgDeleteConfig}>
-                Удалить токен
-              </button>
-            </div>
-
-            {telegramChats.length === 0 ? (
-              <div className="tg-empty">
-                <p>Нет подключённых чатов.</p>
-                <p style={{ fontSize: 13 }}>Напиши боту <strong>/start</strong> в личку или добавь его в группу и напиши <strong>/start</strong>.</p>
-              </div>
-            ) : (
-              <div className="tg-chat-list" style={{ marginTop: 12 }}>
-                {telegramChats.map(c => (
-                  <div key={c.id} className="tg-chat-row">
-                    <span className="tg-chat-name">💬 {c.chatTitle || c.chatId}</span>
-                    <button className="tg-remove" onClick={() => handleTgRemove(c.id)}>Отключить</button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {telegramChats.length > 0 && (
-              <>
-                <div style={{ height: 12 }} />
-                <button className="btn btn-primary btn-block" onClick={handleTgTest} disabled={tgSending}>
-                  {tgSending ? '…' : '▶ Тестовый дайджест'}
-                </button>
-              </>
-            )}
-          </>
-        )}
-
-        <div style={{ fontSize: 12, color: 'var(--neutral)', marginTop: 12 }}>
-          Дайджест — каждый день в 09:00. Команды: <strong>/digest</strong> — получить сейчас, <strong>/stop</strong> — отключить чат.
-        </div>
-      </div>
-
-      {/* ── Export / Import ── */}
-      <div className="export-card">
-        <h3>💾 Резервная копия</h3>
-        <p>Скачайте зашифрованный файл с всеми данными. Расшифровка возможна только с мастер-паролем.</p>
-        <button className="btn btn-primary btn-block" onClick={handleExport} disabled={exporting || records.length === 0}>
-          {exporting ? '…' : '⬇ Скачать .enc файл'}
-        </button>
-        <div style={{ height: 10 }} />
-        <input ref={fileRef} type="file" accept=".enc" style={{ display: 'none' }} onChange={handleImport} />
-        <button className="btn btn-ghost btn-block" onClick={() => fileRef.current.click()} disabled={importing}>
-          {importing ? '…' : '⬆ Загрузить из файла'}
-        </button>
-      </div>
+      <ExportImportCard recordCount={records.length} onReload={onReload} showToast={showToast} />
 
       {/* ── Audit log (O01) ── */}
       <AuditCard showToast={showToast} />

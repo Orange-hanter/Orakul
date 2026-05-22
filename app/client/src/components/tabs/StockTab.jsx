@@ -3,6 +3,8 @@ import Modal from '../Modal.jsx';
 import AlphabetScroller, { firstLetter, sortLetters } from '../AlphabetScroller.jsx';
 import { detectAllAnomalies } from '../../utils/anomaly.js';
 import { nplural } from '../../utils/plural.js';
+import { fmtDateTime as fmtDate } from '../../utils/format.js';
+import { DAY_MS } from '../../utils/time.js';
 
 const UNITS = ['кг', 'г', 'л', 'мл', 'шт', 'уп', 'порц', 'бут'];
 const CATEGORIES = ['Мясо/Рыба', 'Гастрономия', 'Морепродукты', 'Молочное', 'Овощи/Фрукты', 'Сухие', 'Заморозка', 'Соусы', 'Тесто', 'Десерты', 'Напитки', 'Прочее'];
@@ -11,15 +13,6 @@ const EMPTY_PRODUCT = { name: '', unit: 'кг', category: 'Прочее' };
 
 const MODE_LABEL  = { receipt: 'Приход', writeoff: 'Списание', inventory: 'Переучёт' };
 const MODE_VERB   = { receipt: 'Поступило', writeoff: 'Списать', inventory: 'Фактический остаток' };
-
-function fmtDate(ts) {
-  if (!ts) return '';
-  const d = new Date(ts);
-  const h = d.getHours().toString().padStart(2, '0');
-  const m = d.getMinutes().toString().padStart(2, '0');
-  const day = d.toLocaleDateString('ru', { day: 'numeric', month: 'short' });
-  return `${day}, ${h}:${m}`;
-}
 
 function round2(n) { return +(+n).toFixed(2); }
 
@@ -35,7 +28,7 @@ function qtyClass(qty, unit) {
   return 'qty-good';
 }
 
-export default function StockTab({ records, loading, onCreate, onUpdate, onDelete, showToast }) {
+export default function StockTab({ records, byType, loading, onCreate, onUpdate, onDelete, showToast }) {
   const [logModal,  setLogModal]  = useState(null);
   const [addModal,  setAddModal]  = useState(false);
   const [editModal, setEditModal] = useState(null);
@@ -48,11 +41,11 @@ export default function StockTab({ records, loading, onCreate, onUpdate, onDelet
   const sectionRefs = useRef({});
 
   const products = useMemo(
-    () => records.filter(r => r.type === 'product').sort((a, b) => a.name.localeCompare(b.name, 'ru')),
-    [records]
+    () => (byType?.get('product') || []).slice().sort((a, b) => a.name.localeCompare(b.name, 'ru')),
+    [byType]
   );
 
-  const stockEntries = useMemo(() => records.filter(r => r.type === 'stock_entry'), [records]);
+  const stockEntries = useMemo(() => byType?.get('stock_entry') || [], [byType]);
 
   const entryByProduct = useMemo(() => {
     const map = new Map();
@@ -84,7 +77,7 @@ export default function StockTab({ records, loading, onCreate, onUpdate, onDelet
   // Days-to-depletion: based on writeoffs + inventory deficits over last 14 days
   const daysLeftMap = useMemo(() => {
     const map = new Map();
-    const cutoff = Date.now() - 14 * 86_400_000;
+    const cutoff = Date.now() - 14 * DAY_MS;
     products.forEach(p => {
       const last = entryByProduct.get(p.id);
       if (!last) return;
