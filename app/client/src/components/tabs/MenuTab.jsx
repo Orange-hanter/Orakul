@@ -7,6 +7,7 @@ import { foodCostColor } from '../../utils/pnl.js';
 import { nplural } from '../../utils/plural.js';
 import { toIsoDate, salesInPeriod } from '../../utils/dishSales.js';
 import DishSalesModal from '../DishSalesModal.jsx';
+import WhatIfPanel from '../WhatIfPanel.jsx';
 
 function fmtMoney(n) {
   if (n === null || n === undefined || !Number.isFinite(n)) return '—';
@@ -22,6 +23,7 @@ export default function MenuTab({ records, loading, onCreate, onUpdate, onDelete
   const [saving,       setSaving]       = useState(false);
   const [showPicker,   setShowPicker]   = useState(false);
   const [salesOpen,    setSalesOpen]    = useState(false);
+  const [showWhatIf,   setShowWhatIf]   = useState(false);
 
   const sectionRefs = useRef({});
 
@@ -84,7 +86,7 @@ export default function MenuTab({ records, loading, onCreate, onUpdate, onDelete
     });
     setModal(d);
   }
-  function close()     { setModal(null); setShowPicker(false); }
+  function close()     { setModal(null); setShowPicker(false); setShowWhatIf(false); }
 
   function validate() {
     if (!form.name.trim()) return 'Введите название блюда';
@@ -282,6 +284,26 @@ export default function MenuTab({ records, loading, onCreate, onUpdate, onDelete
               />
             </div>
           </div>
+          {modal !== 'add' && form.ingredients?.length > 0 && (
+            <>
+              <button
+                type="button"
+                className="btn btn-ghost btn-block"
+                style={{ height: 32, fontSize: 12, marginBottom: 8, justifyContent: 'flex-start' }}
+                onClick={() => setShowWhatIf(!showWhatIf)}
+              >
+                {showWhatIf ? '▼' : '▶'} 🎯 Что если изменить цену?
+              </button>
+              {showWhatIf && (
+                <WhatIfPanel
+                  dish={{ ...modal, sellPrice: form.sellPrice, ingredients: form.ingredients }}
+                  supplierItems={supplierItems}
+                  suppliers={suppliers}
+                  sales={sales}
+                />
+              )}
+            </>
+          )}
           <div className="form-group">
             <label>Активно в меню</label>
             <div className="segment segment-2">
