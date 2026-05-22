@@ -1,6 +1,8 @@
 import { useState, useMemo, useRef } from 'react';
 import Modal from '../Modal.jsx';
 import AlphabetScroller, { firstLetter, sortLetters } from '../AlphabetScroller.jsx';
+import { detectAllAnomalies } from '../../utils/anomaly.js';
+import { nplural } from '../../utils/plural.js';
 
 const UNITS = ['кг', 'г', 'л', 'мл', 'шт', 'уп', 'порц', 'бут'];
 const CATEGORIES = ['Мясо/Рыба', 'Гастрономия', 'Морепродукты', 'Молочное', 'Овощи/Фрукты', 'Сухие', 'Заморозка', 'Соусы', 'Тесто', 'Десерты', 'Напитки', 'Прочее'];
@@ -97,6 +99,14 @@ export default function StockTab({ records, loading, onCreate, onUpdate, onDelet
     });
     return map;
   }, [products, stockEntries, entryByProduct]);
+
+  // AI05 — аномальные списания (today > 2σ относительно 14-дневного среднего)
+  const anomalies = useMemo(() => detectAllAnomalies(records), [records]);
+  const anomalyByProduct = useMemo(() => {
+    const m = new Map();
+    for (const a of anomalies) m.set(a.productId, a);
+    return m;
+  }, [anomalies]);
 
   const letters = sortLetters(Object.keys(grouped));
 
@@ -224,11 +234,25 @@ export default function StockTab({ records, loading, onCreate, onUpdate, onDelet
     const cls  = last ? qtyClass(last.resulting, p.unit) : '';
     const days = daysLeftMap.get(p.id);
     const daysCls = days === undefined ? '' : days <= 1 ? 'days-critical' : days <= 3 ? 'days-warn' : days <= 7 ? 'days-ok' : '';
+    const anomaly = anomalyByProduct.get(p.id);
     return (
       <div className={`product-row ${cls}`} onClick={() => openLog(p)}>
         <div className="product-info">
           <div className="product-name">
             {p.name}
+            {anomaly && (
+              <span
+                title={`Списание сегодня ${anomaly.todayWriteoff.toFixed(2)} ${anomaly.unit} — это ${anomaly.sigmas.toFixed(1)}σ от 14-дневной нормы ~${anomaly.mean.toFixed(2)} ${anomaly.unit}`}
+                style={{
+                  marginLeft: 6, padding: '2px 6px', borderRadius: 4,
+                  fontSize: 11, fontWeight: 700,
+                  background: anomaly.severity === 'critical' ? 'var(--danger)' : 'var(--warning)',
+                  color: '#fff',
+                }}
+              >
+                ⚠ {anomaly.severity === 'critical' ? 'аномалия' : 'много'}
+              </span>
+            )}
             {days !== undefined && days <= 7 && (
               <span className={`days-badge ${daysCls}`}>
                 {days === 0 ? 'кончается' : `~${days} дн.`}
@@ -262,6 +286,27 @@ export default function StockTab({ records, loading, onCreate, onUpdate, onDelet
 
   return (
     <>
+      {anomalies.length > 0 && (
+        <div style={{
+          margin: '12px 16px 0',
+          padding: 12,
+          background: anomalies.some(a => a.severity === 'critical') ? '#fef2f2' : '#fffbeb',
+          border: `1px solid ${anomalies.some(a => a.severity === 'critical') ? 'var(--danger)' : 'var(--warning)'}`,
+          borderRadius: 8,
+          fontSize: 13,
+        }}>
+          <div style={{ fontWeight: 700, marginBottom: 4 }}>
+            ⚠ {nplural(anomalies.length, ['Аномалия', 'Аномалии', 'Аномалий'])} списания сегодня: {anomalies.length}
+          </div>
+          <div style={{ color: 'var(--neutral)' }}>
+            {anomalies.slice(0, 3).map(a =>
+              `${a.productName} (${a.todayWriteoff.toFixed(1)} ${a.unit}, ${a.sigmas.toFixed(1)}σ)`
+            ).join(' · ')}
+            {anomalies.length > 3 && ` · …и ещё ${anomalies.length - 3}`}
+          </div>
+        </div>
+      )}
+
       <div className="section-header" style={{ paddingRight: products.length > 6 ? 28 : 0 }}>
         <span className="section-title">Склад</span>
         <span className="section-count">{products.length} позиций</span>

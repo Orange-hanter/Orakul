@@ -547,6 +547,74 @@ function buildPnLDigest(venueId) {
   return msg;
 }
 
+// AI05 — server-side anomaly digest. Дублирует логику client/utils/anomaly.js
+// (см. DL-2026-005: client ESM ↔ server CJS, не шарим напрямую).
+// Считаем дневные writeoff по продукту за 14 дней + сравниваем с today.
+function buildAnomalyDigest(venueId) {
+  if (!venueId) return null;
+  const store = loadStore();
+  const products = store.records.filter(r => r.type === 'product' && r.venueId === venueId);
+  const entries  = store.records.filter(r => r.type === 'stock_entry' && r.venueId === venueId);
+  if (products.length === 0) return null;
+
+  const DAY = 86_400_000;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const isoOf = (ts) => {
+    const d = new Date(ts);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+  const todayIso = isoOf(today.getTime());
+  const windowIsos = new Set();
+  for (let i = 1; i <= 14; i++) windowIsos.add(isoOf(today.getTime() - i * DAY));
+
+  const flagged = [];
+  for (const p of products) {
+    const daily = new Map();
+    let todayWriteoff = 0;
+    for (const e of entries) {
+      if (e.productId !== p.id || e.kind !== 'writeoff' || e.delta == null) continue;
+      const ts = e.createdAt || e.updatedAt || 0;
+      if (!ts) continue;
+      const iso = isoOf(ts);
+      const out = Math.abs(Number(e.delta) || 0);
+      if (out === 0) continue;
+      if (iso === todayIso) todayWriteoff += out;
+      else if (windowIsos.has(iso)) daily.set(iso, (daily.get(iso) || 0) + out);
+    }
+    if (todayWriteoff === 0) continue;
+    const samples = [...daily.values()];
+    if (samples.length < 7) continue;
+
+    const mean = samples.reduce((a, c) => a + c, 0) / samples.length;
+    const variance = samples.reduce((acc, x) => acc + (x - mean) ** 2, 0) /
+                     Math.max(1, samples.length - 1);
+    const stdDev = Math.sqrt(variance);
+    const sigmas = stdDev === 0
+      ? (mean > 0 ? todayWriteoff / mean : 0)
+      : (todayWriteoff - mean) / stdDev;
+    if (sigmas < 2) continue;
+
+    flagged.push({
+      name: p.name, unit: p.unit || 'шт',
+      todayWriteoff, mean, sigmas,
+      severity: sigmas >= 3 ? 'critical' : 'high',
+    });
+  }
+  if (flagged.length === 0) return null;
+  flagged.sort((a, b) => b.sigmas - a.sigmas);
+
+  let msg = '⚠️ *Аномальное списание*\n';
+  for (const a of flagged.slice(0, 6)) {
+    const icon = a.severity === 'critical' ? '🔴' : '🟡';
+    const today = a.todayWriteoff.toFixed(1).replace('.', '\\.');
+    const mean  = a.mean.toFixed(1).replace('.', '\\.');
+    const sig   = a.sigmas.toFixed(1).replace('.', '\\.');
+    msg += `${icon} ${escapeMd(a.name)}: *${today}* ${escapeMd(a.unit)} \\(норма ~${mean}, ${sig}σ\\)\n`;
+  }
+  if (flagged.length > 6) msg += `…и ещё ${flagged.length - 6}\n`;
+  return msg.trimEnd();
+}
+
 async function sendDigestToAll() {
   if (!getTgToken()) return;
   const store = loadStore();
@@ -555,10 +623,10 @@ async function sendDigestToAll() {
   for (const chat of chats) {
     try {
       // Каждому чату — свой дайджест по его venueId (см. DL-2026-010).
-      const stockMsg = buildDigestText(chat.venueId);
-      const pnlMsg   = buildPnLDigest(chat.venueId);
-      // Склеиваем оба блока одним сообщением, если P&L есть
-      const text = pnlMsg ? `${stockMsg}\n\n${pnlMsg}` : stockMsg;
+      const stockMsg     = buildDigestText(chat.venueId);
+      const anomalyMsg   = buildAnomalyDigest(chat.venueId);
+      const pnlMsg       = buildPnLDigest(chat.venueId);
+      const text = [stockMsg, anomalyMsg, pnlMsg].filter(Boolean).join('\n\n');
       await tgApi('sendMessage', { chat_id: chat.chatId, text, parse_mode: 'MarkdownV2' });
     } catch (e) {
       console.error(`TG: failed to send to ${chat.chatId}:`, e.message);
