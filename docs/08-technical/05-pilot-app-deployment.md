@@ -51,16 +51,26 @@
 /opt/orakul/
 ├── server.js              # Express API
 ├── crypto.js              # AES-256-GCM обёртка
+├── seed-demo.js           # CLI для наполнения демо-данными (не запускается сервисом)
 ├── package.json
 ├── node_modules/          # production-only (npm install --omit=dev)
 ├── .env                   # секреты — chmod 600, owner orakul:orakul
 ├── data/
-│   └── store.enc          # зашифрованные записи (появится после первой записи)
+│   ├── store.enc          # зашифрованные записи (создаётся при первом запуске)
+│   └── store.enc.backup-* # бэкапы перед релизами (создаются вручную — см. §8.5)
+├── integrations/          # серверные модули плагинов (опциональные)
+│   ├── quickresto.js      # Quick Resto POS — mock + stub для live
+│   └── iiko.js            # iiko POS — mock + stub для live
 └── client/
-    ├── package.json
-    ├── node_modules/      # dev-deps нужны для сборки
-    ├── src/
-    └── dist/              # собранная статика, её отдаёт Express
+    ├── package.json       # client deps (включая xlsx с CDN SheetJS)
+    ├── node_modules/      # dev-deps для сборки (опционально на проде — см. §8.5)
+    ├── src/               # исходники (НЕ деплоятся, сборка локально)
+    └── dist/              # собранная статика — её отдаёт Express
+        ├── index.html
+        └── assets/
+            ├── index-*.js  # основной бандл React (~78 KB gzip)
+            ├── xlsx-*.js   # отдельный чанк для xlsx (~163 KB gzip, lazy)
+            └── index-*.css # стили (~5 KB gzip)
 ```
 
 - Владелец всего дерева: `orakul:orakul` (системный пользователь, shell — `/usr/sbin/nologin`).
@@ -263,27 +273,73 @@ tail -f /var/log/nginx/error.log
 
 ### 8.5. Обновление кода (релиз)
 
-С локальной машины из корня репозитория:
+С локальной машины из корня репозитория. **Предварительно собрать клиент локально** (`npm run build`) — на проде сборку не делаем, чтобы избежать установки dev-зависимостей и тянуть xlsx с CDN при каждом релизе.
 
 ```bash
-# 1. Залить обновлённый код (без node_modules, .env, store.enc)
-rsync -az --delete \
-  --exclude 'node_modules' \
-  --exclude '.env' \
-  --exclude 'data/*.enc' \
-  --exclude '.git' \
-  --exclude '.playwright-mcp' \
-  --exclude 'client/dist' \
-  --exclude 'client/node_modules' \
-  ~/Git/Mozarella/Orakul/app/ orakul:/opt/orakul/
+# 0. ВСЕГДА сначала бэкап (см. §8.6)
+ssh orakul "cp /opt/orakul/data/store.enc \
+  /opt/orakul/data/store.enc.backup-pre-deploy-$(date +%Y%m%d-%H%M%S)"
 
-# 2. Доустановить зависимости и пересобрать клиент, рестартануть сервис
-ssh orakul 'set -e
-  cd /opt/orakul && npm install --omit=dev --no-fund --no-audit
-  cd client && npm install --no-fund --no-audit && npm run build
-  chown -R orakul:orakul /opt/orakul
-  systemctl restart orakul'
+# 1. Локально пересобрать клиент
+cd ~/Git/Mozarella/Orakul/app && npm run build
+
+# 2. Залить обновлённый код. БЕЗ --delete: на проде есть .env / data / node_modules,
+#    которые в локальном чекауте отсутствуют. Лишние файлы dist остаются — disk only.
+rsync -avz \
+  --exclude='node_modules' \
+  --exclude='.env' \
+  --exclude='data/' \
+  --exclude='client/node_modules' \
+  --exclude='client/src' \
+  --exclude='Dockerfile' \
+  --exclude='docker-compose*' \
+  --exclude='.dockerignore' \
+  --exclude='*.log' \
+  --exclude='.githooks' \
+  ./ orakul:/opt/orakul/
+
+# 3. Восстановить владельца + рестарт.
+#    npm install обычно не нужен — все runtime-зависимости client-side (xlsx)
+#    собраны в dist; server-side набор cors/dotenv/express/jsonwebtoken не менялся.
+ssh orakul "set -e
+  chown -R orakul:orakul /opt/orakul/server.js /opt/orakul/seed-demo.js \
+    /opt/orakul/integrations /opt/orakul/client /opt/orakul/package.json \
+    /opt/orakul/package-lock.json
+  systemctl restart orakul.service
+  sleep 2
+  systemctl is-active orakul.service"
 ```
+
+#### Что произойдёт при первом релизе с multi-venue
+
+При старте сервиса автоматически запустится миграция:
+
+```
+✅  Multi-venue migration applied (default venue: «Точка 1»)
+```
+
+Она:
+- создаст запись `venue` с `isDefault: true` (если ещё не существует);
+- проставит `venueId` всем существующим записям типов `product`, `dish`, `stop`, `stock_entry`, `order`, `revenue_entry`, `fixed_expense`, `telegram_chat`.
+
+Миграция **идемпотентна** — повторные запуски ничего не делают.
+
+#### Зависимости
+
+- **Server-side прод-deps:** не изменились (cors, dotenv, express, jsonwebtoken) — `npm install` пропускаем.
+- **Client-side:** `xlsx@0.20.3` тянется с CDN SheetJS (`https://cdn.sheetjs.com/...`). Прод нужен исходящий доступ при `npm install`. Локальная сборка решает: dist уже содержит xlsx чанком.
+
+#### Если нужно поднять с нуля (fresh server)
+
+```bash
+ssh orakul "set -e
+  cd /opt/orakul
+  npm install --omit=dev --no-fund --no-audit
+  cd client && npm install --no-fund --no-audit
+  cd /opt/orakul && chown -R orakul:orakul ."
+```
+
+После этого один раз: `systemctl enable --now orakul.service`.
 
 ### 8.6. Бэкап / восстановление хранилища
 
