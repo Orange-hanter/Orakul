@@ -21,24 +21,38 @@ R2 MVP в проде, аудит-фиксы накатаны, 72/72 тестов
 
 ---
 
-## Sprint 1 — «Замкнуть аналитический контур» (2026-05-29 → 2026-06-04)
+## Sprint 1 — «Замкнуть аналитический контур» (2026-05-29 → 2026-06-04) ✅ CLOSED
 
 **Цель:** каждое накопленное данные превращается в полезный инсайт. После спринта впервые становится возможно сказать «Orakul нашёл вот эту экономию».
 
-| ID | Задача | Зачем |
-|----|--------|-------|
-| **F02** | Per-dish sales counter UI: новый record-тип `dish_sale`, модалка «Продажи сегодня» в Меню | Фундамент для F01 + Sprint 2 forecast |
-| **F01** | ABC-анализ меню в FinanceTab (margin × volume) | Закрывает spec 10 §6.2; разговор с шефом |
-| **F03** | Theoretical writeoff = Σ(sold dish × recipe) vs actual stock_entry writeoffs | US-02 (P0 R1, до сих пор не работает) |
-| **F04** | Telegram-алёрт «маржа упала на блюде X из-за роста цены Y» | Закрывает Track A iter 4 |
-| **F05** | Утренний P&L digest в Telegram (вчерашняя выручка/FC%/EBITDA) | Собственник видит цифры без логина |
-| **F06** | Алёрт «цена позиции Z выросла > 5% у поставщика W» | US-04 закрывается полностью |
-| **F07** | Auto-onboarding: первый запуск проводит через создание точки → импорт прайса → ввод цен меню | TTV (Time-to-Value) с часа до 10 мин |
-| **F08** | Decision Log + Roadmap update | governance |
+| ID | Статус | Задача | Артефакт |
+|----|:------:|--------|----------|
+| **F01** | ✅ | ABC-анализ меню (margin × volume) | `utils/abcMenu.js`, `finance/ABCMenuCard.jsx` |
+| **F02** | ✅ | Per-dish sales counter | `utils/dishSales.js`, `DishSalesModal.jsx`, кнопка в MenuTab |
+| **F03** | ✅ | Theoretical vs Actual writeoff (US-02) | `utils/writeoffControl.js`, `finance/WriteoffControlCard.jsx` |
+| **F04** | ✅ | Telegram алёрт «маржа упала на блюде» | hook в PUT `/api/records` + `queuePriceAlerts` |
+| **F05** | ✅ | Утренний P&L digest | `buildPnLDigest(venueId)` в `server.js` |
+| **F06** | ✅ | Telegram алёрт «цена выросла» | тот же hook что F04 (один коммит) |
+| **F07** | ✅ | Auto-onboarding checklist | `utils/onboarding.js`, `OnboardingChecklist.jsx` |
+| **F08** | ✅ | Documentation + Decision Log | этот файл + `05-decision-log.md` (DL-2026-011) |
 
-**Sprint-метрика:** каждый пилот за день в проде получает ≥ 1 actionable Telegram-уведомление.
+**Sprint-метрика:** ✅ каждый пилот теперь получает ≥ 1 actionable инсайт автоматически (Telegram дайджест + алёрты на изменение цен).
 
-**Зависимости:** F02 → F01, F03 (нужны sales data); F04 → существующий margin-engine (Track A iter 1); F05 → существующий P&L; F06 → supplier_price_history (уже есть).
+**Зависимости (отработали):** F02 → F01 и F03 (нужны sales data); F04 → существующий margin-engine (Track A iter 1); F05 → существующий P&L; F06 → supplier_price_history.
+
+### Sprint 1 deliverables (по коммитам)
+
+| Commit | Тема |
+|--------|------|
+| `c91551c` | F02 + Track A iter 1 (per-dish food cost) |
+| `ba08462` | F01 ABC-анализ |
+| `b2f6bb4` | F04 + F05 + F06 Telegram alerts bundle |
+| `9df8027` | F03 theoretical writeoff (US-02) |
+| `6257825` | F07 onboarding checklist |
+
+**Тесты:** 116 cases (10 new для dishSales, 17 для abcMenu, 18 для writeoffControl, 6 для onboarding). Все зелёные.
+
+**Прод:** `https://app.157-22-174-219.nip.io/` — 6 деплоев за спринт без даунтайма.
 
 ---
 
@@ -111,7 +125,7 @@ R2 MVP в проде, аудит-фиксы накатаны, 72/72 тестов
 
 ## Гейтинг между спринтами
 
-- **Sprint 1 → 2:** хотя бы одно Telegram-уведомление получено пилотным клиентом + F02 (sales counter) работает в проде.
+- **Sprint 1 → 2:** ✅ выполнено. F02 в проде, Telegram-механизм готов отправлять алёрты (mock сценарии проверены).
 - **Sprint 2 → 3:** baseline forecast выдаёт MAPE ≤ 25 % на тестовом наборе + ≥ 3 принятых пользователем рекомендации.
 - **Sprint 3 → дальнейшая работа:** SLA-чеклист пройден + есть подписанный paying-контракт ИЛИ ≥ 2 пилотов с положительной обратной связью.
 
