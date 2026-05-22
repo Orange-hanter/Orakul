@@ -318,10 +318,25 @@ async function tgApi(method, body = {}) {
   return res.json();
 }
 
-function buildDigestText() {
+// MarkdownV2 требует экранировать спецсимволы — иначе Telegram отбрасывает сообщение.
+function escapeMd(s) {
+  return String(s).replace(/([_*\[\]()~`>#+\-=|{}.!\\])/g, '\\$1');
+}
+
+// Если venueId передан — фильтруем продукты/движения только этой точки.
+// Если null/undefined (вызов из старых мест) — агрегируем по всем (legacy fallback).
+function buildDigestText(venueId = null) {
   const store = loadStore();
-  const products    = store.records.filter(r => r.type === 'product');
-  const stockEntries = store.records.filter(r => r.type === 'stock_entry');
+  let products     = store.records.filter(r => r.type === 'product');
+  let stockEntries = store.records.filter(r => r.type === 'stock_entry');
+  let venueName    = null;
+
+  if (venueId) {
+    products     = products.filter(p => p.venueId === venueId);
+    stockEntries = stockEntries.filter(e => e.venueId === venueId);
+    const v      = store.records.find(r => r.type === 'venue' && r.id === venueId);
+    venueName    = v?.name || null;
+  }
 
   const entryByProduct = new Map();
   stockEntries.forEach(e => {
@@ -348,7 +363,9 @@ function buildDigestText() {
   }
 
   const dateStr = new Date().toLocaleDateString('ru', { day: 'numeric', month: 'long', weekday: 'long' });
-  let msg = `🍕 *Склад — дайджест*\n📅 ${dateStr}\n\n`;
+  let msg = `🍕 *Склад — дайджест*\n📅 ${escapeMd(dateStr)}\n`;
+  if (venueName) msg += `📍 ${escapeMd(venueName)}\n`;
+  msg += '\n';
 
   if (critical.length === 0 && warning.length === 0) {
     return msg + '✅ Всё в норме, критичных позиций нет\\.';
@@ -357,14 +374,14 @@ function buildDigestText() {
     msg += '🔴 *Критично \\(меньше 2 дней\\):*\n';
     critical.forEach(({ p, days, current }) => {
       const dStr = days === 0 ? 'кончается' : `~${days} дн\\.`;
-      msg += `• ${p.name} — ${current} ${p.unit} \\(${dStr}\\)\n`;
+      msg += `• ${escapeMd(p.name)} — ${current} ${escapeMd(p.unit)} \\(${dStr}\\)\n`;
     });
     msg += '\n';
   }
   if (warning.length > 0) {
     msg += '⚠️ *Скоро закончится \\(2–3 дня\\):*\n';
     warning.forEach(({ p, days, current }) => {
-      msg += `• ${p.name} — ${current} ${p.unit} \\(~${days} дн\\.\\)\n`;
+      msg += `• ${escapeMd(p.name)} — ${current} ${escapeMd(p.unit)} \\(~${days} дн\\.\\)\n`;
     });
   }
   return msg;
@@ -375,9 +392,10 @@ async function sendDigestToAll() {
   const store = loadStore();
   const chats = store.records.filter(r => r.type === 'telegram_chat');
   if (chats.length === 0) return;
-  const text = buildDigestText();
   for (const chat of chats) {
     try {
+      // Каждому чату — свой дайджест по его venueId (см. DL-2026-010).
+      const text = buildDigestText(chat.venueId);
       await tgApi('sendMessage', { chat_id: chat.chatId, text, parse_mode: 'MarkdownV2' });
     } catch (e) {
       console.error(`TG: failed to send to ${chat.chatId}:`, e.message);
@@ -400,9 +418,22 @@ async function pollTelegram() {
       if (text === '/start') {
         const store = loadStore();
         if (!store.records.find(r => r.type === 'telegram_chat' && r.chatId === chatId)) {
-          store.records.push({ id: crypto.randomUUID(), type: 'telegram_chat', chatId, chatTitle, createdAt: Date.now(), updatedAt: Date.now() });
+          // Привязываем чат к default-точке — пользователь сможет переназначить
+          // через будущий /venue или редактирование записи.
+          const defaultVenue =
+            store.records.find(r => r.type === 'venue' && r.isDefault) ||
+            store.records.find(r => r.type === 'venue');
+          store.records.push({
+            id: crypto.randomUUID(),
+            type: 'telegram_chat',
+            chatId,
+            chatTitle,
+            venueId: defaultVenue?.id || null,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          });
           saveStore(store);
-          console.log(`TG: registered chat "${chatTitle}" (${chatId})`);
+          console.log(`TG: registered chat "${chatTitle}" (${chatId}) → venue ${defaultVenue?.name || '(none)'}`);
         }
         await tgApi('sendMessage', { chat_id: chatId, text: '✅ Чат подключён к Orakul\\! Дайджест — каждый день в 09:00\\.\n\n/digest — получить сейчас\n/stop — отключить', parse_mode: 'MarkdownV2' });
       }
@@ -413,7 +444,14 @@ async function pollTelegram() {
         await tgApi('sendMessage', { chat_id: chatId, text: '🔕 Уведомления отключены.' });
       }
       if (text === '/digest' || text === '/status') {
-        await tgApi('sendMessage', { chat_id: chatId, text: buildDigestText(), parse_mode: 'MarkdownV2' });
+        // Найдём венью чата (если зарегистрирован) — иначе дефолтный фильтр.
+        const store = loadStore();
+        const chatRec = store.records.find(r => r.type === 'telegram_chat' && r.chatId === chatId);
+        await tgApi('sendMessage', {
+          chat_id:    chatId,
+          text:       buildDigestText(chatRec?.venueId || null),
+          parse_mode: 'MarkdownV2',
+        });
       }
     }
   } catch {
