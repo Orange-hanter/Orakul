@@ -30,7 +30,8 @@ function qtyClass(qty, unit) {
   return 'qty-good';
 }
 
-export default function StockTab({ records, byType, loading, onCreate, onUpdate, onDelete, showToast }) {
+export default function StockTab({ records, byType, venues, currentVenueId, loading, onCreate, onUpdate, onDelete, showToast }) {
+  const currentVenue = venues?.find(v => v.id === currentVenueId) || null;
   const [logModal,  setLogModal]  = useState(null);
   const [addModal,  setAddModal]  = useState(false);
   const [editModal, setEditModal] = useState(null);
@@ -426,6 +427,7 @@ export default function StockTab({ records, byType, loading, onCreate, onUpdate,
           products={products.filter(p => selectedIds.has(p.id))}
           records={records}
           statusByProduct={stockStatusMap}
+          venueName={currentVenue?.name || ''}
           onClose={() => { setOrderModal(false); clearSelection(); }}
           onCreate={onCreate}
           showToast={showToast}

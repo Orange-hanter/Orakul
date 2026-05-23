@@ -101,3 +101,6 @@
 {"ts":1779484819336,"op":"create","recordId":"bf4f6050-aa83-49a9-83ef-d35befef5b93","recordType":"supplier","by":"auth","name":"PHASE9_SMOKE","venueId":null}
 {"ts":1779484819398,"op":"update","recordId":"bf4f6050-aa83-49a9-83ef-d35befef5b93","recordType":"supplier","by":"auth","name":"PHASE9_SMOKE","venueId":null,"changed":["contact"]}
 {"ts":1779484819435,"op":"delete","recordId":"bf4f6050-aa83-49a9-83ef-d35befef5b93","recordType":"supplier","by":"auth","name":"PHASE9_SMOKE","venueId":null}
+{"ts":1779546229153,"op":"create","recordId":"def6ea6a-875d-4749-94e6-1068d32ce853","recordType":"order","by":"auth","name":"ОРД-2026-0006","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f"}
+{"ts":1779546229220,"op":"create","recordId":"a9d79192-39fd-4f7a-8b76-aaaebc82c089","recordType":"order","by":"auth","name":"ОРД-2026-0007","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f"}
+{"ts":1779546246005,"op":"update","recordId":"a9d79192-39fd-4f7a-8b76-aaaebc82c089","recordType":"order","by":"auth","name":"ОРД-2026-0007","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f","changed":["status"]}
