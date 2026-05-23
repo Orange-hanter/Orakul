@@ -11,7 +11,7 @@
  * passing to computeDishCost.
  */
 import { tgApi, escapeMd, getTgToken } from './telegram.js';
-import { computeDishCost } from '../client/src/utils/dishCost.js';
+import { computeDishCost } from '../shared/dishCost.js';
 
 function isPriceJumpSignificant(oldPrice, newPrice) {
   if (newPrice <= oldPrice) return false;

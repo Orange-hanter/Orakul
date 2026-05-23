@@ -11,7 +11,7 @@ import crypto from 'node:crypto';
 import { DATA } from './config.js';
 import { loadStore, saveStore } from './store.js';
 import { authMiddleware as auth } from './auth.js';
-import { detectAllAnomalies } from '../client/src/utils/anomaly.js';
+import { detectAllAnomalies } from '../shared/anomaly.js';
 
 // ── Token + low-level API ────────────────────────────────────────────────────
 
