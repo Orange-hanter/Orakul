@@ -14,7 +14,10 @@ const ROOT      = path.resolve(__dirname, '..');
 export const PORT      = process.env.PORT || 3001;
 export const BIND_HOST = process.env.BIND_HOST || '127.0.0.1';
 export const IS_PROD   = process.env.NODE_ENV === 'production';
-export const DATA_DIR  = path.join(ROOT, 'data');
+// DATA_DIR override lets a second instance (e.g. orakul-demo) share the same
+// code tree but write its store.enc/audit.jsonl to a different directory.
+// Default — co-located with the code, как было исторически.
+export const DATA_DIR  = process.env.DATA_DIR || path.join(ROOT, 'data');
 export const DATA      = path.join(DATA_DIR, 'store.enc');
 export const BUILD     = path.join(ROOT, 'client', 'dist');
 export { ROOT };

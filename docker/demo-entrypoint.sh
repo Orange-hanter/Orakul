@@ -15,7 +15,9 @@ set -eu
 : "${APP_PASSWORD:?APP_PASSWORD must be set for demo}"
 : "${PORT:=3001}"
 
-DATA="/app/data"
+# DATA_DIR is honoured by server/config.js — same env var, same path.
+# Default matches the historical layout (./data next to server.js).
+DATA="${DATA_DIR:-/app/data}"
 STORE="$DATA/store.enc"
 
 reseed_needed=0
