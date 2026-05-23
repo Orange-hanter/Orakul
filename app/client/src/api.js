@@ -19,6 +19,15 @@ async function req(method, path, body) {
 }
 
 export const api = {
+  // Unauthenticated — used by Login.jsx to detect demo mode before login.
+  // Returns { status, uptimeSec, version, ts } in prod; in demo also
+  // { demo: true, demoPasswordHint: '...' } so the UI can render a hint.
+  health: async () => {
+    const res = await fetch('/api/health');
+    if (!res.ok) throw new Error('Сервер недоступен');
+    return res.json();
+  },
+
   login: async (password) => {
     const res = await fetch('/api/auth/login', {
       method: 'POST',

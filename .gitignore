@@ -3,3 +3,6 @@
 data/*
 .DS_Store
 .githooks/post-commit.log
+
+# Local recovery snapshots — never commit (contains store.enc copies + APP_PASSWORD)
+.backups/

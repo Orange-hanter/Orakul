@@ -122,6 +122,64 @@
   margin-bottom: 16px;
 }
 
+/* Demo-mode banner on Login. Only rendered when /api/health returns demo:true. */
+.demo-banner {
+  background: linear-gradient(135deg, #ecfeff 0%, #dbeafe 100%);
+  border: 1.5px solid #38bdf8;
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+.demo-banner-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0369a1;
+  margin-bottom: 4px;
+}
+.demo-banner-body {
+  font-size: 12px;
+  color: #075985;
+  line-height: 1.4;
+  margin-bottom: 10px;
+}
+.demo-banner-pwd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.demo-banner-label {
+  font-size: 12px;
+  color: #075985;
+  font-weight: 600;
+}
+.demo-banner-code {
+  flex: 1;
+  min-width: 0;
+  background: #fff;
+  border: 1px solid #bae6fd;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  color: #0c4a6e;
+  user-select: all;
+  word-break: break-all;
+}
+.demo-banner-fill {
+  background: #0284c7;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.demo-banner-fill:hover { background: #0369a1; }
+.demo-banner-fill:active { background: #075985; }
+
 /* ── Form elements ──────────────────────────────────────────────────────────── */
 .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
 .form-group label { font-size: 13px; font-weight: 600; color: var(--neutral); text-transform: uppercase; letter-spacing: 0.5px; }

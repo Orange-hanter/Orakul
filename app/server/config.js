@@ -49,6 +49,15 @@ export const CORS_ORIGIN = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',').map(s => s.trim()).filter(Boolean)
   : (IS_PROD ? false : true);
 
+// Demo mode — when DEMO_MODE=1, /api/health surfaces a hint with the demo
+// password so the login screen can display it. The hint is whatever string
+// the operator sets in DEMO_PASSWORD_HINT (default: the actual APP_PASSWORD,
+// since demo passwords are public by design). Prod sets neither.
+export const DEMO_MODE = process.env.DEMO_MODE === '1';
+export const DEMO_PASSWORD_HINT = DEMO_MODE
+  ? (process.env.DEMO_PASSWORD_HINT || PASS)
+  : null;
+
 // Pre-hash configured password for timing-safe equality at login.
 export const PASS_HASH = crypto.createHash('sha256').update(PASS).digest();
 
