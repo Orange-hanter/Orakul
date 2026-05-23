@@ -4,12 +4,15 @@
 #   open http://orakul.localhost         # via shared dev-proxy
 #   open http://app.localhost            # alias (shared with other projects' aliases — keep app-specific names)
 #   open http://localhost:3001           # direct, bypassing the proxy
+#   open http://demo.localhost           # isolated demo with synthetic data
+#   open http://localhost:3002           # demo direct, bypassing the proxy
 #
 # Requires the shared proxy to be running:
 #   (cd ~/Git/dev-proxy && docker compose up -d)
-# The proxy routes orakul.localhost → orakul-app:3001 via the dev-proxy-net network.
+# The proxy routes orakul.localhost / demo.localhost → containers via dev-proxy-net.
 #
 # Persistent data lives in ./app/data (bind mount → easy backups).
+# Demo data lives in a named volume (orakul-demo-data) — re-seeded on each start.
 # Auto-rebuild on `git commit` is wired by .githooks/post-commit.
 
 name: orakul
@@ -32,7 +35,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3001
-      # Default server bind is 127.0.0.1 (см. server.js S08 — для прод-сервера
+      # Default server bind is 127.0.0.1 (см. server/config.js — для прод-сервера
       # за nginx). В Docker нужен 0.0.0.0, иначе port-mapping не работает —
       # Docker форвардит на network-интерфейс контейнера, не на loopback.
       - BIND_HOST=0.0.0.0
@@ -46,8 +49,52 @@ services:
           - orakul-app        # what dev-proxy resolves for orakul.localhost
           - orakul.local      # in-network DNS for other containers
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/api/health"]
       interval: 30s
       timeout: 3s
       retries: 3
       start_period: 5s
+
+  # ── Public demo instance ────────────────────────────────────────────────────
+  # Isolated container with its own named data volume, its own APP_PASSWORD,
+  # its own encrypted store seeded with synthetic data via seed-demo.js.
+  # DEMO_RESEED=1 wipes + reseeds on every container start so visitors land
+  # on a clean known state every time.
+  demo:
+    image: orakul-app:latest         # shares image with prod app
+    container_name: orakul-demo
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_started   # ensures image is built first
+    environment:
+      # Demo-only credentials. NEVER reuse the production APP_PASSWORD here —
+      # this store is wiped on every restart with DEMO_RESEED=1.
+      - APP_PASSWORD=orakul_demo_password_v1
+      - JWT_SECRET=orakul_demo_jwt_secret_change_per_environment
+      - NODE_ENV=production
+      - PORT=3001
+      - BIND_HOST=0.0.0.0
+      - DEMO_RESEED=1
+      - SEED_URL=http://127.0.0.1:3001
+    volumes:
+      - orakul-demo-data:/app/data   # NAMED volume — not the bind mount on host
+      - ./docker/demo-entrypoint.sh:/app/demo-entrypoint.sh:ro
+    ports:
+      - "3002:3001"                  # demo on host:3002 → container:3001
+    networks:
+      proxy-net:
+        aliases:
+          - orakul-demo
+          - orakul-demo.local
+    entrypoint: ["/sbin/tini", "--", "/app/demo-entrypoint.sh"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/api/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 30s              # seed run can take up to ~20s on cold start
+
+volumes:
+  orakul-demo-data:
+    name: orakul-demo-data
