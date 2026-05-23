@@ -56,3 +56,145 @@
   background: #16a34a; flex-shrink: 0;
 }
 .tg-empty p { margin: 8px 0 0; font-size: 14px; color: var(--neutral); }
+
+/* ── Stock: selection + sticky order bar ────────────────────────────────────── */
+.product-select {
+  display: flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.product-select input[type="checkbox"] {
+  width: 20px; height: 20px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.product-row.selected {
+  background: #eff6ff;
+  box-shadow: 0 0 0 1.5px var(--accent), var(--shadow);
+}
+
+.stock-order-bar {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(var(--tab-h) + var(--safe-b) + 12px);
+  z-index: 50;
+  background: var(--surface);
+  border: 1.5px solid var(--accent);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(37,99,235,0.20);
+  padding: 10px 14px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+}
+.stock-order-bar-info {
+  display: flex; align-items: center; gap: 12px;
+  min-width: 0;
+}
+.stock-order-bar-count {
+  font-size: 14px; font-weight: 600;
+}
+.stock-order-bar-clear {
+  background: none; border: none;
+  color: var(--neutral); font-size: 13px;
+  cursor: pointer; padding: 0;
+  text-decoration: underline;
+}
+.stock-order-bar-cta {
+  flex-shrink: 0;
+}
+
+/* ── OrderFromStock modal lines ─────────────────────────────────────────────── */
+.ofs-list { display: flex; flex-direction: column; gap: 14px; }
+
+.ofs-line {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  background: #fafafa;
+}
+.ofs-line-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 8px; margin-bottom: 10px;
+}
+.ofs-line-name  { font-size: 15px; font-weight: 600; }
+.ofs-line-stock { font-size: 12px; color: var(--neutral); margin-top: 2px; }
+.ofs-line-remove {
+  background: none; border: none; color: var(--neutral);
+  font-size: 16px; cursor: pointer; padding: 0 4px;
+}
+.ofs-line-remove:hover { color: var(--danger); }
+
+.ofs-qty-row {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+}
+.ofs-qty-label { font-size: 13px; color: var(--neutral); min-width: 80px; }
+.ofs-qty-input { flex: 1; max-width: 120px; }
+.ofs-qty-unit  { font-size: 13px; color: var(--neutral); }
+
+.ofs-suppliers { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.ofs-supplier {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  cursor: pointer;
+}
+.ofs-supplier.selected {
+  border-color: var(--accent);
+  background: #eff6ff;
+}
+.ofs-supplier input[type="radio"] {
+  width: 18px; height: 18px;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+.ofs-supplier-info  { flex: 1; min-width: 0; }
+.ofs-supplier-name  { font-size: 14px; font-weight: 600; }
+.ofs-supplier-meta  { font-size: 12px; color: var(--neutral); margin-top: 2px; }
+.ofs-cheapest {
+  margin-left: 6px; font-size: 11px; font-weight: 700;
+  color: #15803d;
+}
+.ofs-supplier-total {
+  font-size: 14px; font-weight: 700;
+  color: var(--text);
+  flex-shrink: 0;
+}
+
+.ofs-orphans {
+  border: 1px solid var(--warning);
+  background: #fffbeb;
+  border-radius: var(--radius-sm);
+  padding: 12px;
+}
+.ofs-orphans-title { font-weight: 700; font-size: 14px; color: #92400e; }
+.ofs-orphans-body  { font-size: 13px; color: var(--neutral); margin-top: 4px; }
+.ofs-orphans-list  {
+  list-style: none; padding: 0; margin: 8px 0 0;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.ofs-orphans-list li {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 13px;
+}
+
+.ofs-summary {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: var(--radius-sm);
+  padding: 12px;
+}
+.ofs-summary-title { font-weight: 700; font-size: 14px; margin-bottom: 8px; }
+.ofs-summary-list  {
+  list-style: none; padding: 0; margin: 0 0 8px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.ofs-summary-list li {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 13px;
+}
+.ofs-summary-meta  { color: var(--neutral); }
+.ofs-summary-total { font-size: 14px; text-align: right; }

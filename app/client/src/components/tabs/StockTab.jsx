@@ -2,14 +2,16 @@ import { useState, useMemo, useRef } from 'react';
 import Modal from '../Modal.jsx';
 import AlphabetScroller, { firstLetter, sortLetters } from '../AlphabetScroller.jsx';
 import { detectAllAnomalies } from '../../utils/anomaly.js';
+import { buildStockStatusMap, explainStockStatus } from '../../utils/stockStatus.js';
 import { nplural } from '../../utils/plural.js';
 import { fmtDateTime as fmtDate } from '../../utils/format.js';
 import { DAY_MS } from '../../utils/time.js';
+import OrderFromStock from '../orders/OrderFromStock.jsx';
 
 const UNITS = ['кг', 'г', 'л', 'мл', 'шт', 'уп', 'порц', 'бут'];
 const CATEGORIES = ['Мясо/Рыба', 'Гастрономия', 'Морепродукты', 'Молочное', 'Овощи/Фрукты', 'Сухие', 'Заморозка', 'Соусы', 'Тесто', 'Десерты', 'Напитки', 'Прочее'];
 
-const EMPTY_PRODUCT = { name: '', unit: 'кг', category: 'Прочее' };
+const EMPTY_PRODUCT = { name: '', unit: 'кг', category: 'Прочее', reorderPoint: '' };
 
 const MODE_LABEL  = { receipt: 'Приход', writeoff: 'Списание', inventory: 'Переучёт' };
 const MODE_VERB   = { receipt: 'Поступило', writeoff: 'Списать', inventory: 'Фактический остаток' };
@@ -37,8 +39,20 @@ export default function StockTab({ records, byType, loading, onCreate, onUpdate,
   const [note,      setNote]      = useState('');
   const [form,      setForm]      = useState(EMPTY_PRODUCT);
   const [saving,    setSaving]    = useState(false);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [orderModal,  setOrderModal]  = useState(false);
 
   const sectionRefs = useRef({});
+
+  function toggleSelected(productId) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(productId)) next.delete(productId);
+      else                     next.add(productId);
+      return next;
+    });
+  }
+  function clearSelection() { setSelectedIds(new Set()); }
 
   const products = useMemo(
     () => (byType?.get('product') || []).slice().sort((a, b) => a.name.localeCompare(b.name, 'ru')),
@@ -92,6 +106,13 @@ export default function StockTab({ records, byType, loading, onCreate, onUpdate,
     });
     return map;
   }, [products, stockEntries, entryByProduct]);
+
+  // Low-stock сигнал: 'out' / 'low-manual' / 'low-forecast' / 'ok'
+  // см. docs/08-technical/12-order-from-stock-spec.md §4
+  const stockStatusMap = useMemo(
+    () => buildStockStatusMap(records, products),
+    [records, products]
+  );
 
   // AI05 — аномальные списания (today > 2σ относительно 14-дневного среднего)
   const anomalies = useMemo(() => detectAllAnomalies(records), [records]);
@@ -191,14 +212,22 @@ export default function StockTab({ records, byType, loading, onCreate, onUpdate,
       showToast('Введите название продукта', 'error');
       return;
     }
+    const reorderPointNum = form.reorderPoint === '' || form.reorderPoint == null
+      ? null
+      : Number(form.reorderPoint);
+    if (reorderPointNum !== null && (Number.isNaN(reorderPointNum) || reorderPointNum < 0)) {
+      showToast('Порог заказа должен быть числом ≥ 0', 'error');
+      return;
+    }
+    const payload = { ...form, reorderPoint: reorderPointNum };
     setSaving(true);
     try {
       if (isEdit) {
-        await onUpdate(editModal.id, form);
+        await onUpdate(editModal.id, payload);
         showToast('Продукт обновлён');
         setEditModal(null);
       } else {
-        await onCreate({ type: 'product', ...form });
+        await onCreate({ type: 'product', ...payload });
         showToast('Продукт добавлен');
         setAddModal(false);
       }
@@ -228,8 +257,26 @@ export default function StockTab({ records, byType, loading, onCreate, onUpdate,
     const days = daysLeftMap.get(p.id);
     const daysCls = days === undefined ? '' : days <= 1 ? 'days-critical' : days <= 3 ? 'days-warn' : days <= 7 ? 'days-ok' : '';
     const anomaly = anomalyByProduct.get(p.id);
+    const status  = stockStatusMap.get(p.id);
+    const stockBadge =
+      status?.status === 'out'          ? { label: 'Закончился',     cls: 'days-critical' } :
+      status?.status === 'low-manual'   ? { label: 'Ниже порога',    cls: 'days-warn' } :
+      status?.status === 'low-forecast' ? { label: 'Заканчивается',  cls: 'days-warn' } :
+      null;
+    const isSelected = selectedIds.has(p.id);
     return (
-      <div className={`product-row ${cls}`} onClick={() => openLog(p)}>
+      <div className={`product-row ${cls} ${isSelected ? 'selected' : ''}`} onClick={() => openLog(p)}>
+        <label
+          className="product-select"
+          onClick={e => e.stopPropagation()}
+          title="Добавить в заказ"
+        >
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => toggleSelected(p.id)}
+          />
+        </label>
         <div className="product-info">
           <div className="product-name">
             {p.name}
@@ -246,7 +293,17 @@ export default function StockTab({ records, byType, loading, onCreate, onUpdate,
                 ⚠ {anomaly.severity === 'critical' ? 'аномалия' : 'много'}
               </span>
             )}
-            {days !== undefined && days <= 7 && (
+            {stockBadge && (
+              <span
+                className={`days-badge ${stockBadge.cls}`}
+                title={explainStockStatus(status, p.unit)}
+              >
+                {stockBadge.label}
+              </span>
+            )}
+            {/* Days-to-depletion badge: показываем только когда low-stock не сработал,
+                чтобы не дублировать сигнал. */}
+            {!stockBadge && days !== undefined && days <= 7 && (
               <span className={`days-badge ${daysCls}`}>
                 {days === 0 ? 'кончается' : `~${days} дн.`}
               </span>
@@ -269,7 +326,7 @@ export default function StockTab({ records, byType, loading, onCreate, onUpdate,
         </div>
         <button
           style={{ background: 'none', border: 'none', color: 'var(--neutral)', fontSize: 18, padding: '0 0 0 8px', cursor: 'pointer' }}
-          onClick={e => { e.stopPropagation(); setForm({ name: p.name, unit: p.unit, category: p.category }); setEditModal(p); }}
+          onClick={e => { e.stopPropagation(); setForm({ name: p.name, unit: p.unit, category: p.category, reorderPoint: p.reorderPoint ?? '' }); setEditModal(p); }}
         >
           ✎
         </button>
@@ -341,7 +398,39 @@ export default function StockTab({ records, byType, loading, onCreate, onUpdate,
         <AlphabetScroller availableLetters={letters} onJump={jumpTo} />
       )}
 
-      <button className="fab" onClick={() => { setForm(EMPTY_PRODUCT); setAddModal(true); }}>+</button>
+      {selectedIds.size === 0 && (
+        <button className="fab" onClick={() => { setForm(EMPTY_PRODUCT); setAddModal(true); }}>+</button>
+      )}
+
+      {selectedIds.size > 0 && (
+        <div className="stock-order-bar">
+          <div className="stock-order-bar-info">
+            <span className="stock-order-bar-count">
+              Выбрано {selectedIds.size} {nplural(selectedIds.size, ['товар','товара','товаров'])}
+            </span>
+            <button className="stock-order-bar-clear" onClick={clearSelection}>
+              Сбросить
+            </button>
+          </div>
+          <button
+            className="btn btn-primary stock-order-bar-cta"
+            onClick={() => setOrderModal(true)}
+          >
+            Заказать →
+          </button>
+        </div>
+      )}
+
+      {orderModal && (
+        <OrderFromStock
+          products={products.filter(p => selectedIds.has(p.id))}
+          records={records}
+          statusByProduct={stockStatusMap}
+          onClose={() => { setOrderModal(false); clearSelection(); }}
+          onCreate={onCreate}
+          showToast={showToast}
+        />
+      )}
 
       {logModal && (
         <Modal
@@ -509,6 +598,23 @@ export default function StockTab({ records, byType, loading, onCreate, onUpdate,
             <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
               {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
+          </div>
+          <div className="form-group">
+            <label>
+              Порог заказа <span className="label-hint">(опц., {form.unit})</span>
+            </label>
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              inputMode="decimal"
+              placeholder="Напр. 5 — сигнал «заканчивается» когда остаток ниже"
+              value={form.reorderPoint}
+              onChange={e => setForm({ ...form, reorderPoint: e.target.value })}
+            />
+            <div className="field-hint">
+              Если оставить пустым — сигнал будет считаться по прогнозу продаж.
+            </div>
           </div>
           {editModal && (
             <button className="btn btn-danger btn-block" style={{ marginTop: 8 }} onClick={() => deleteProduct(editModal)}>

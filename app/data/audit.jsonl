@@ -1,0 +1,103 @@
+{"ts":1779479728752,"op":"create","recordId":"dfae181b-b3e1-4087-a238-3d0efff154e7","recordType":"venue","by":"auth","name":"Моцарела 2","venueId":null}
+{"ts":1779482233957,"op":"update","recordId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f","recordType":"venue","by":"auth","name":"Кофейня №1 (флагман)","venueId":null,"changed":["name","address"]}
+{"ts":1779482234028,"op":"create","recordId":"ff735934-1a7d-4f2e-80d7-5c93917c54fd","recordType":"venue","by":"auth","name":"Кофейня №2 (мини)","venueId":null}
+{"ts":1779482234099,"op":"create","recordId":"e57827b2-c984-4958-a75a-1dec72073f0e","recordType":"venue","by":"auth","name":"Кофейня №3 (новая)","venueId":null}
+{"ts":1779482234173,"op":"create","recordId":"86e074cf-bb0b-4db2-8e3c-8582deccdddd","recordType":"product","by":"auth","name":"Мука пшеничная в/с","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f"}
+{"ts":1779482234254,"op":"create","recordId":"c20a3cc3-fc7e-4db4-b3f1-9d33b12dc57e","recordType":"product","by":"auth","name":"Масло сливочное 82.5%","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f"}
+{"ts":1779482234325,"op":"create","recordId":"0afbd36f-358e-4b8c-a5b7-f72c8f0a2c20","recordType":"product","by":"auth","name":"Яйцо куриное С1","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f"}
+{"ts":1779482234397,"op":"create","recordId":"dd849fd5-5c5f-459c-a6fa-04a3fbdfa11d","recordType":"product","by":"auth","name":"Молоко 3.2%","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f"}
+{"ts":1779482234470,"op":"create","recordId":"500f09ad-006e-491c-befc-606b11af9b01","recordType":"product","by":"auth","name":"Сахар-песок","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f"}
+{"ts":1779482234547,"op":"create","recordId":"0f06bd41-9c08-4ddc-acef-31baeb00e8f6","recordType":"product","by":"auth","name":"Кофе арабика зерно","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f"}
+{"ts":1779482234616,"op":"create","recordId":"de831f7e-1ad8-4a4f-b447-98618e8d8f04","recordType":"product","by":"auth","name":"Сыр моцарелла","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f"}
+{"ts":1779482234697,"op":"create","recordId":"841b1ea8-4f5f-41ff-b14d-7cf6006fb8d2","recordType":"product","by":"auth","name":"Помидоры свежие","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f"}
+{"ts":1779482234807,"op":"create","recordId":"0d8cca6c-ce37-45a3-b558-59747aa741cc","recordType":"product","by":"auth","name":"Огурцы свежие","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f"}
+{"ts":1779482234891,"op":"create","recordId":"3d359087-e7d6-4846-b869-da0b616b8f10","recordType":"product","by":"auth","name":"Куриная грудка","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f"}
+{"ts":1779482234972,"op":"create","recordId":"eb891536-f1c0-4277-b0f6-a598742c1a18","recordType":"product","by":"auth","name":"Хлеб тостовый","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f"}
+{"ts":1779482235043,"op":"create","recordId":"ee7491c6-60e8-4ace-8237-87e9fef96d98","recordType":"product","by":"auth","name":"Сливки 10%","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f"}
+{"ts":1779482235129,"op":"create","recordId":"fcdc5133-b75b-4bdb-a174-39fb49235f11","recordType":"supplier","by":"auth","name":"ООО АгроПоставка","venueId":null}
+{"ts":1779482235234,"op":"create","recordId":"458ef859-2af2-453f-9402-6c2ea86b6c2b","recordType":"supplier","by":"auth","name":"ИП Козлов","venueId":null}
+{"ts":1779482235319,"op":"create","recordId":"126fc3fa-70b9-4189-8ae0-0fbaad0fe8ff","recordType":"supplier","by":"auth","name":"ООО ФрешМаркет","venueId":null}
+{"ts":1779482235397,"op":"create","recordId":"5835d752-00ce-4e26-9546-31b626f6a8dd","recordType":"supplier_item","by":"auth","name":"Мука в/с 25 кг","venueId":null}
+{"ts":1779482235484,"op":"update","recordId":"5835d752-00ce-4e26-9546-31b626f6a8dd","recordType":"supplier_item","by":"auth","name":"Мука в/с 25 кг","venueId":null,"changed":["price"]}
+{"ts":1779482235634,"op":"update","recordId":"5835d752-00ce-4e26-9546-31b626f6a8dd","recordType":"supplier_item","by":"auth","name":"Мука в/с 25 кг","venueId":null,"changed":["price"]}
+{"ts":1779482235769,"op":"create","recordId":"dc840ddb-5df8-41da-80b2-9417ebc07362","recordType":"supplier_item","by":"auth","name":"Масло слив. 82.5% 5 кг","venueId":null}
+{"ts":1779482235854,"op":"update","recordId":"dc840ddb-5df8-41da-80b2-9417ebc07362","recordType":"supplier_item","by":"auth","name":"Масло слив. 82.5% 5 кг","venueId":null,"changed":["price"]}
+{"ts":1779482235984,"op":"update","recordId":"dc840ddb-5df8-41da-80b2-9417ebc07362","recordType":"supplier_item","by":"auth","name":"Масло слив. 82.5% 5 кг","venueId":null,"changed":["price"]}
+{"ts":1779482236112,"op":"create","recordId":"c829fe72-305f-478b-8af5-95bae6a32989","recordType":"supplier_item","by":"auth","name":"Яйцо С1 десяток","venueId":null}
+{"ts":1779482236178,"op":"create","recordId":"173688dd-0411-4d4e-9619-b1d58c60670e","recordType":"supplier_item","by":"auth","name":"Молоко 3.2% 1 л","venueId":null}
+{"ts":1779482236246,"op":"create","recordId":"184cb117-2926-41e8-850f-e5896d3741c8","recordType":"supplier_item","by":"auth","name":"Сахар-песок 50 кг","venueId":null}
+{"ts":1779482236319,"op":"create","recordId":"6ff1594c-9c4c-4ddb-8ac8-856c718fef59","recordType":"supplier_item","by":"auth","name":"Моцарелла для пиццы 2 кг","venueId":null}
+{"ts":1779482236387,"op":"create","recordId":"5776b10f-ece7-424e-a3fd-cd212c52f9f0","recordType":"supplier_item","by":"auth","name":"Грудка куриная охл.","venueId":null}
+{"ts":1779482236456,"op":"create","recordId":"847b9f50-edca-4bbc-82ea-f3ef77adc291","recordType":"supplier_item","by":"auth","name":"Сливки 10% 1 л","venueId":null}
+{"ts":1779482236527,"op":"create","recordId":"6de9562f-9517-44b0-a292-7c8855a0a211","recordType":"supplier_item","by":"auth","name":"Мука пшеничная высш. сорт","venueId":null}
+{"ts":1779482236593,"op":"create","recordId":"323e24c6-da17-42f6-80ab-506ff112ecd8","recordType":"supplier_item","by":"auth","name":"Сахар-песок ГОСТ","venueId":null}
+{"ts":1779482236663,"op":"create","recordId":"280b4ef8-775b-42ad-a229-db5e0f7dbb54","recordType":"supplier_item","by":"auth","name":"Кофе арабика в зёрнах 1 кг","venueId":null}
+{"ts":1779482236746,"op":"update","recordId":"280b4ef8-775b-42ad-a229-db5e0f7dbb54","recordType":"supplier_item","by":"auth","name":"Кофе арабика в зёрнах 1 кг","venueId":null,"changed":["price"]}
+{"ts":1779482236886,"op":"update","recordId":"280b4ef8-775b-42ad-a229-db5e0f7dbb54","recordType":"supplier_item","by":"auth","name":"Кофе арабика в зёрнах 1 кг","venueId":null,"changed":["price"]}
+{"ts":1779482237014,"op":"create","recordId":"97df8d74-b12c-4305-94fc-6464f6f2d77f","recordType":"supplier_item","by":"auth","name":"Хлеб для тостов 450 г","venueId":null}
+{"ts":1779482237083,"op":"create","recordId":"360765c7-04a2-4a36-bb4f-7da1b7a9766e","recordType":"supplier_item","by":"auth","name":"Помидоры розовые","venueId":null}
+{"ts":1779482237150,"op":"create","recordId":"c15b8dfb-0c1d-4581-b934-23ce2033fb4b","recordType":"supplier_item","by":"auth","name":"Огурцы гладкие","venueId":null}
+{"ts":1779482237239,"op":"create","recordId":"c751a40b-6d80-4a43-baef-119db6004274","recordType":"order","by":"auth","name":"ОРД-2026-0001","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f"}
+{"ts":1779482237310,"op":"create","recordId":"e41dbf32-ea4f-4dbf-b75c-37bcff1307fd","recordType":"order","by":"auth","name":"ОРД-2026-0002","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f"}
+{"ts":1779482237376,"op":"create","recordId":"95dc0b36-22d3-46a4-8cf7-7cde60b3fb64","recordType":"order","by":"auth","name":"ОРД-2026-0003","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f"}
+{"ts":1779482237444,"op":"create","recordId":"3ee33feb-a806-4e82-bbe0-20ffc2b1c455","recordType":"revenue_entry","by":"auth","name":"","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f"}
+{"ts":1779482237514,"op":"create","recordId":"46a7497c-1c84-48a8-bd82-6622a01d219e","recordType":"revenue_entry","by":"auth","name":"","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f"}
+{"ts":1779482237586,"op":"create","recordId":"a1a3a02e-36a7-48b4-9f60-3511edc41f67","recordType":"revenue_entry","by":"auth","name":"","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f"}
+{"ts":1779482237652,"op":"create","recordId":"8a5ed8cd-73f7-416f-b2fd-cb4bea472676","recordType":"revenue_entry","by":"auth","name":"","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f"}
+{"ts":1779482237727,"op":"create","recordId":"97caf3ed-0a70-4b01-92da-685d019aa596","recordType":"revenue_entry","by":"auth","name":"","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f"}
+{"ts":1779482237803,"op":"create","recordId":"f5a4f39f-a5b1-481b-afe8-25c38ae3a457","recordType":"revenue_entry","by":"auth","name":"","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f"}
+{"ts":1779482237884,"op":"create","recordId":"c6e02ae4-b034-4dcd-8a39-0dafc34dd241","recordType":"revenue_entry","by":"auth","name":"","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f"}
+{"ts":1779482237961,"op":"create","recordId":"7d72d1ca-c649-4508-9fe9-2f8f69a96f53","recordType":"revenue_entry","by":"auth","name":"","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f"}
+{"ts":1779482238034,"op":"create","recordId":"bc4a7ba7-d948-4697-9f49-22cb27fe8ac5","recordType":"revenue_entry","by":"auth","name":"","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f"}
+{"ts":1779482238103,"op":"create","recordId":"f1862568-1583-4e49-b04f-f64bb5a9d92b","recordType":"revenue_entry","by":"auth","name":"","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f"}
+{"ts":1779482238176,"op":"create","recordId":"a2d044ef-e535-444a-a799-67b9a4ad27de","recordType":"revenue_entry","by":"auth","name":"","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f"}
+{"ts":1779482238253,"op":"create","recordId":"f24aa6ca-f3fa-4c76-b945-61e96878fd9b","recordType":"revenue_entry","by":"auth","name":"","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f"}
+{"ts":1779482238325,"op":"create","recordId":"a8734827-9ec7-4051-92ab-96eaaedc1f6a","recordType":"revenue_entry","by":"auth","name":"","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f"}
+{"ts":1779482238392,"op":"create","recordId":"77e9b4f7-b301-4941-b708-6cd005e34f8b","recordType":"revenue_entry","by":"auth","name":"","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f"}
+{"ts":1779482238459,"op":"create","recordId":"793b0557-e709-4b4a-a930-56f6562c99e9","recordType":"fixed_expense","by":"auth","name":"Аренда помещения","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f"}
+{"ts":1779482238530,"op":"create","recordId":"25c60249-63dc-450a-a63c-b9a0f2d5446c","recordType":"fixed_expense","by":"auth","name":"ФОТ (3 сотрудника)","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f"}
+{"ts":1779482238594,"op":"create","recordId":"fa6eaa2a-403c-4562-9e32-4a7113a76f7e","recordType":"fixed_expense","by":"auth","name":"Коммунальные","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f"}
+{"ts":1779482238659,"op":"create","recordId":"d7c007e2-357b-48d0-98a4-58d2b4b2ccf4","recordType":"fixed_expense","by":"auth","name":"Эквайринг + связь","venueId":"a1294304-fb3b-48fa-89f1-d04abc8a2c3f"}
+{"ts":1779482238724,"op":"create","recordId":"dbd6d5ad-4ac6-48b6-8689-b4656923ffeb","recordType":"order","by":"auth","name":"ОРД-2026-0004","venueId":"ff735934-1a7d-4f2e-80d7-5c93917c54fd"}
+{"ts":1779482238818,"op":"create","recordId":"6ce63493-b53c-4547-9111-9de3c7f017c9","recordType":"revenue_entry","by":"auth","name":"","venueId":"ff735934-1a7d-4f2e-80d7-5c93917c54fd"}
+{"ts":1779482238955,"op":"create","recordId":"44fcffe7-72d1-42b7-aaff-c4b6f0f51b6e","recordType":"revenue_entry","by":"auth","name":"","venueId":"ff735934-1a7d-4f2e-80d7-5c93917c54fd"}
+{"ts":1779482239029,"op":"create","recordId":"83666506-2a85-48f2-a350-20cc7f247be6","recordType":"revenue_entry","by":"auth","name":"","venueId":"ff735934-1a7d-4f2e-80d7-5c93917c54fd"}
+{"ts":1779482239094,"op":"create","recordId":"f266f4c0-84c3-458e-821d-589018c6b0b4","recordType":"revenue_entry","by":"auth","name":"","venueId":"ff735934-1a7d-4f2e-80d7-5c93917c54fd"}
+{"ts":1779482239161,"op":"create","recordId":"6cd39820-6ca3-45fe-9eae-f06d0ddca4a8","recordType":"revenue_entry","by":"auth","name":"","venueId":"ff735934-1a7d-4f2e-80d7-5c93917c54fd"}
+{"ts":1779482239232,"op":"create","recordId":"8a7db84f-8dce-47b7-91c9-b0de93b0f456","recordType":"revenue_entry","by":"auth","name":"","venueId":"ff735934-1a7d-4f2e-80d7-5c93917c54fd"}
+{"ts":1779482239300,"op":"create","recordId":"12343f15-4b01-43ef-8ccd-f875fb1b786b","recordType":"revenue_entry","by":"auth","name":"","venueId":"ff735934-1a7d-4f2e-80d7-5c93917c54fd"}
+{"ts":1779482239368,"op":"create","recordId":"e120eec4-88f8-42dc-9139-fd3e975b1f6d","recordType":"revenue_entry","by":"auth","name":"","venueId":"ff735934-1a7d-4f2e-80d7-5c93917c54fd"}
+{"ts":1779482239436,"op":"create","recordId":"207a3ebc-a0bd-4536-bb7b-33e78597f164","recordType":"revenue_entry","by":"auth","name":"","venueId":"ff735934-1a7d-4f2e-80d7-5c93917c54fd"}
+{"ts":1779482239505,"op":"create","recordId":"d83516cb-6dec-4751-bf76-e2612f148982","recordType":"revenue_entry","by":"auth","name":"","venueId":"ff735934-1a7d-4f2e-80d7-5c93917c54fd"}
+{"ts":1779482239573,"op":"create","recordId":"7926dcdd-cb4c-40c2-90d6-204b8673fd64","recordType":"revenue_entry","by":"auth","name":"","venueId":"ff735934-1a7d-4f2e-80d7-5c93917c54fd"}
+{"ts":1779482239639,"op":"create","recordId":"cea8679c-646a-479d-ad5e-3e97cb43c841","recordType":"revenue_entry","by":"auth","name":"","venueId":"ff735934-1a7d-4f2e-80d7-5c93917c54fd"}
+{"ts":1779482239708,"op":"create","recordId":"185b505b-c5f0-405d-b50e-2bec005e126c","recordType":"revenue_entry","by":"auth","name":"","venueId":"ff735934-1a7d-4f2e-80d7-5c93917c54fd"}
+{"ts":1779482239775,"op":"create","recordId":"39a48b94-5256-4bfb-b2e7-70bbddf8dde1","recordType":"revenue_entry","by":"auth","name":"","venueId":"ff735934-1a7d-4f2e-80d7-5c93917c54fd"}
+{"ts":1779482239844,"op":"create","recordId":"3490a6b3-0c53-440c-bb56-097d0849ea30","recordType":"fixed_expense","by":"auth","name":"Аренда помещения","venueId":"ff735934-1a7d-4f2e-80d7-5c93917c54fd"}
+{"ts":1779482239911,"op":"create","recordId":"f96e7bc5-509a-494a-9ec6-85dcd1893217","recordType":"fixed_expense","by":"auth","name":"ФОТ (1 сотрудник)","venueId":"ff735934-1a7d-4f2e-80d7-5c93917c54fd"}
+{"ts":1779482239980,"op":"create","recordId":"79226187-b925-4e2f-8802-a5010714ffa7","recordType":"fixed_expense","by":"auth","name":"Коммунальные","venueId":"ff735934-1a7d-4f2e-80d7-5c93917c54fd"}
+{"ts":1779482240045,"op":"create","recordId":"18ed6843-7c08-4db2-9869-830ccd9bb848","recordType":"fixed_expense","by":"auth","name":"Эквайринг + связь","venueId":"ff735934-1a7d-4f2e-80d7-5c93917c54fd"}
+{"ts":1779482240113,"op":"create","recordId":"cffd35d4-bafd-4ec4-9512-01a5d9c6f33c","recordType":"order","by":"auth","name":"ОРД-2026-0005","venueId":"e57827b2-c984-4958-a75a-1dec72073f0e"}
+{"ts":1779482240177,"op":"create","recordId":"4d122e3c-d3c9-448d-89d6-d5750685ec68","recordType":"revenue_entry","by":"auth","name":"","venueId":"e57827b2-c984-4958-a75a-1dec72073f0e"}
+{"ts":1779482240244,"op":"create","recordId":"ff53812d-e5ac-414e-916f-588cf2206cc3","recordType":"revenue_entry","by":"auth","name":"","venueId":"e57827b2-c984-4958-a75a-1dec72073f0e"}
+{"ts":1779482240309,"op":"create","recordId":"67fc6630-405f-4779-8794-e7c7fdc74ca4","recordType":"revenue_entry","by":"auth","name":"","venueId":"e57827b2-c984-4958-a75a-1dec72073f0e"}
+{"ts":1779482240376,"op":"create","recordId":"293e49c6-c1a3-44b5-bc9b-c357c647d70c","recordType":"revenue_entry","by":"auth","name":"","venueId":"e57827b2-c984-4958-a75a-1dec72073f0e"}
+{"ts":1779482240442,"op":"create","recordId":"38aac3d1-4855-41ec-a8b4-50c8065fc384","recordType":"revenue_entry","by":"auth","name":"","venueId":"e57827b2-c984-4958-a75a-1dec72073f0e"}
+{"ts":1779482240507,"op":"create","recordId":"dab9f0d5-5954-4e2d-8202-916ae0170b19","recordType":"revenue_entry","by":"auth","name":"","venueId":"e57827b2-c984-4958-a75a-1dec72073f0e"}
+{"ts":1779482240575,"op":"create","recordId":"f88339d8-fd07-4224-b343-07a221a3467d","recordType":"revenue_entry","by":"auth","name":"","venueId":"e57827b2-c984-4958-a75a-1dec72073f0e"}
+{"ts":1779482240644,"op":"create","recordId":"730833ed-fde5-471e-a0d7-3e15a4a85286","recordType":"revenue_entry","by":"auth","name":"","venueId":"e57827b2-c984-4958-a75a-1dec72073f0e"}
+{"ts":1779482240710,"op":"create","recordId":"1d16928b-88b6-4c91-a4b1-5138913c1ee4","recordType":"revenue_entry","by":"auth","name":"","venueId":"e57827b2-c984-4958-a75a-1dec72073f0e"}
+{"ts":1779482240779,"op":"create","recordId":"89863163-8ca4-41c8-a4b1-50881bbd7353","recordType":"revenue_entry","by":"auth","name":"","venueId":"e57827b2-c984-4958-a75a-1dec72073f0e"}
+{"ts":1779482240844,"op":"create","recordId":"3c28fe4d-218a-40d0-8d53-0b7ed4a9a2cf","recordType":"revenue_entry","by":"auth","name":"","venueId":"e57827b2-c984-4958-a75a-1dec72073f0e"}
+{"ts":1779482240918,"op":"create","recordId":"003a17b3-c8ec-4127-88c9-ce4ae8847f4d","recordType":"revenue_entry","by":"auth","name":"","venueId":"e57827b2-c984-4958-a75a-1dec72073f0e"}
+{"ts":1779482240997,"op":"create","recordId":"fdefd06d-9fd7-46f6-8620-92529f2cec44","recordType":"revenue_entry","by":"auth","name":"","venueId":"e57827b2-c984-4958-a75a-1dec72073f0e"}
+{"ts":1779482241093,"op":"create","recordId":"41d8a9fc-03d6-4020-add5-6c49e2c65494","recordType":"revenue_entry","by":"auth","name":"","venueId":"e57827b2-c984-4958-a75a-1dec72073f0e"}
+{"ts":1779482241160,"op":"create","recordId":"653a6d78-2be5-473b-af02-65adc14fd5af","recordType":"fixed_expense","by":"auth","name":"Аренда помещения","venueId":"e57827b2-c984-4958-a75a-1dec72073f0e"}
+{"ts":1779482241231,"op":"create","recordId":"fd8f8f0c-9f96-48fc-a62d-5217b45af39a","recordType":"fixed_expense","by":"auth","name":"ФОТ (1 сотрудник)","venueId":"e57827b2-c984-4958-a75a-1dec72073f0e"}
+{"ts":1779482241304,"op":"create","recordId":"f008a79c-a63b-42d6-90c5-1522c662bcd2","recordType":"fixed_expense","by":"auth","name":"Коммунальные","venueId":"e57827b2-c984-4958-a75a-1dec72073f0e"}
+{"ts":1779482241379,"op":"create","recordId":"d0b3b28c-ad8f-469b-a32a-c4c9003bb7fa","recordType":"fixed_expense","by":"auth","name":"Эквайринг + связь","venueId":"e57827b2-c984-4958-a75a-1dec72073f0e"}
+{"ts":1779483428748,"op":"create","recordId":"8136a04a-a10d-4075-b33e-7c13593c665f","recordType":"supplier","by":"auth","name":"TEST_ZZZ","venueId":null}
+{"ts":1779483428832,"op":"delete","recordId":"8136a04a-a10d-4075-b33e-7c13593c665f","recordType":"supplier","by":"auth","name":"TEST_ZZZ","venueId":null}
+{"ts":1779484819336,"op":"create","recordId":"bf4f6050-aa83-49a9-83ef-d35befef5b93","recordType":"supplier","by":"auth","name":"PHASE9_SMOKE","venueId":null}
+{"ts":1779484819398,"op":"update","recordId":"bf4f6050-aa83-49a9-83ef-d35befef5b93","recordType":"supplier","by":"auth","name":"PHASE9_SMOKE","venueId":null,"changed":["contact"]}
+{"ts":1779484819435,"op":"delete","recordId":"bf4f6050-aa83-49a9-83ef-d35befef5b93","recordType":"supplier","by":"auth","name":"PHASE9_SMOKE","venueId":null}
