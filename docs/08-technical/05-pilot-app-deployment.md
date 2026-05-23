@@ -21,12 +21,13 @@
 |---|---|---|
 | Reverse proxy / TLS | nginx 1.24 (Ubuntu) + Let's Encrypt | `:443`/`:80` → роутинг по домену (см. §6) |
 | Лендинг | Статические HTML/CSS/JS | `/var/www/orakul-landing/`, раздаётся nginx напрямую |
-| Приложение | Node.js 20 LTS + Express | systemd unit `orakul.service`, порт `3001` |
+| Приложение (пилот) | Node.js 20 LTS + Express (ESM) | systemd unit `orakul.service`, порт `3001`, своя `data/store.enc` |
+| Демо (публичное) | Тот же контейнер, изолированный инстанс | docker `orakul-demo`, порт `3002` (host), синтетика через `seed-demo.js`, ресет при каждом старте (DEMO_RESEED=1) |
 | Клиент | React 18 + Vite (статика) | `/opt/orakul/client/dist`, раздаётся самим Express |
-| Хранилище | Зашифрованный файл | `/opt/orakul/data/store.enc` |
+| Хранилище | Зашифрованный файл | `/opt/orakul/data/store.enc` (пилот) / named-volume `orakul-demo-data` (демо) |
 | ОС / хост | Ubuntu 24.04 LTS | hostname `106316.com`, IP `157.22.174.219` |
 
-Сервер используется **только** под Orakul Pilot (других сервисов на нём не запущено).
+Сервер используется **только** под Orakul (пилот + демо).
 
 ---
 
@@ -36,12 +37,13 @@
 |---|---|
 | Лендинг (публичный) | `https://157-22-174-219.nip.io/` |
 | Приложение (пилот) | `https://app.157-22-174-219.nip.io/` |
+| Демо (публичное) | `https://demo.157-22-174-219.nip.io/` — пароль: `orakul_demo_password_v1` (не секрет; данные синтетические) |
 | SSH-алиас | `orakul` (см. `~/.ssh/config` на машине разработчика) |
 | SSH-ключ | `~/.ssh/orakul_deploy` (приватный, на машине разработчика) |
 | SSH-пользователь | `root` |
 | Открытые порты | `22` (SSH), `80` (HTTP → redirect), `443` (HTTPS через nginx) |
 | Firewall (ufw) | **неактивен** (см. п. 7. Риски) |
-| TLS / HTTPS | Let's Encrypt, cert для `157-22-174-219.nip.io` + `app.157-22-174-219.nip.io`, истекает 2026-08-20, авто-renew через `certbot.timer` |
+| TLS / HTTPS | Let's Encrypt, cert для `157-22-174-219.nip.io` + `app.*` + `demo.*`, истекает 2026-08-20, авто-renew через `certbot.timer` |
 
 > Внутренний порт `3001` слушается на `127.0.0.1` (loopback) — с 2026-05-22 это поведение по умолчанию (`BIND_HOST=127.0.0.1` в `server/config.js`). Внешний доступ к API возможен только через nginx. Старый риск «3001 на `0.0.0.0`» закрыт — см. §7 R3.
 
@@ -175,8 +177,9 @@ WantedBy=multi-user.target
 
 ```nginx
 # ============================================================
-#  157-22-174-219.nip.io       → static landing
-#  app.157-22-174-219.nip.io   → Orakul pilot app (Node :3001)
+#  157-22-174-219.nip.io        → static landing
+#  app.157-22-174-219.nip.io    → Orakul pilot app    (Node :3001)
+#  demo.157-22-174-219.nip.io   → Orakul demo (synth) (Node :3002)
 # ============================================================
 
 # --- Лендинг на корневом домене ---
@@ -233,19 +236,52 @@ server {
     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 }
 
+# --- Публичное демо с синтетическими данными ---
+# Контейнер `orakul-demo` (docker-compose.yml) → host:3002 → внутри 3001.
+# Состояние сбрасывается при перезапуске контейнера (DEMO_RESEED=1),
+# отдельный APP_PASSWORD/JWT_SECRET — компрометация demo не задевает prod.
+server {
+    server_name demo.157-22-174-219.nip.io;
+
+    client_max_body_size 5m;      # демо не нужен большой импорт
+
+    location / {
+        proxy_pass http://127.0.0.1:3002;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
+    }
+
+    # Для расширения сертификата на demo.* — webroot ACME challenge.
+    location /.well-known/acme-challenge/ {
+        root /var/www/orakul-landing;
+    }
+
+    listen [::]:443 ssl;
+    listen 443 ssl;
+    ssl_certificate /etc/letsencrypt/live/157-22-174-219.nip.io/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/157-22-174-219.nip.io/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+}
+
 # --- HTTP: ACME + redirect на HTTPS ---
 server {
     listen 80 default_server;
     listen [::]:80 default_server;
-    server_name 157-22-174-219.nip.io app.157-22-174-219.nip.io _;
+    server_name 157-22-174-219.nip.io app.157-22-174-219.nip.io demo.157-22-174-219.nip.io _;
 
     location /.well-known/acme-challenge/ {
         root /var/www/orakul-landing;
     }
 
     location / {
-        if ($host = 157-22-174-219.nip.io)     { return 301 https://$host$request_uri; }
-        if ($host = app.157-22-174-219.nip.io) { return 301 https://$host$request_uri; }
+        if ($host = 157-22-174-219.nip.io)      { return 301 https://$host$request_uri; }
+        if ($host = app.157-22-174-219.nip.io)  { return 301 https://$host$request_uri; }
+        if ($host = demo.157-22-174-219.nip.io) { return 301 https://$host$request_uri; }
         return 404;
     }
 }
@@ -259,6 +295,17 @@ server {
 
 ✅ Решено: выпущен Let's Encrypt cert через certbot, SAN: `157-22-174-219.nip.io` + `app.157-22-174-219.nip.io`. HTTPS работает на порту 443, HTTP редиректит 301. Авто-renew через `certbot.timer` (systemd). Webroot для renew — `/var/www/orakul-landing/.well-known/acme-challenge/`.
 
+🟡 При первом деплое demo-поддомена нужно расширить cert на `demo.157-22-174-219.nip.io` — иначе HTTPS на демо отвалится:
+
+```bash
+ssh orakul "certbot certonly --webroot -w /var/www/orakul-landing \
+  -d 157-22-174-219.nip.io \
+  -d app.157-22-174-219.nip.io \
+  -d demo.157-22-174-219.nip.io \
+  --expand --non-interactive --agree-tos -m admin@orakul.local"
+ssh orakul "systemctl reload nginx"
+```
+
 ```bash
 # Проверить срок действия и покрываемые домены
 ssh orakul "certbot certificates 2>&1 | grep -E 'Certificate Name|Domain|Expiry'"
@@ -267,7 +314,7 @@ ssh orakul "certbot certificates 2>&1 | grep -E 'Certificate Name|Domain|Expiry'
 ssh orakul "certbot renew --quiet"
 
 # Проверить SANs сертификата через openssl
-echo | openssl s_client -connect 157.22.174.219:443 -servername 157-22-174-219.nip.io 2>/dev/null \
+echo | openssl s_client -connect 157.22.174.219:443 -servername demo.157-22-174-219.nip.io 2>/dev/null \
   | openssl x509 -noout -ext subjectAltName
 ```
 
@@ -368,6 +415,33 @@ systemctl restart orakul
 ```
 
 > **Внимание**: смена `APP_PASSWORD` делает существующий `data/store.enc` нечитаемым. Перед сменой — экспортировать данные через UI старым паролем.
+
+### 8.3.1. Демо-контейнер
+
+Демо живёт в отдельном Docker-контейнере `orakul-demo` рядом с пилотом
+(`docker-compose.yml` в репо). Хранилище — named-volume `orakul-demo-data`,
+с продовым `data/store.enc` не пересекается. На каждом старте контейнера
+выполняется `DEMO_RESEED=1` — `seed-demo.js` пересоздаёт синтетику.
+
+```bash
+# Старт обоих (app + demo)
+cd /opt/orakul && docker compose up -d
+
+# Только перезапустить демо (= сбросить состояние)
+docker compose restart demo
+
+# Логи seed-процесса (что насеялось)
+docker logs orakul-demo | head -60
+
+# Принудительно пересеять (без рестарта контейнера)
+docker exec orakul-demo sh -c 'rm -f /app/data/store.enc /app/data/audit.jsonl' \
+  && docker compose restart demo
+
+# Проверить healthcheck демо
+curl -s https://demo.157-22-174-219.nip.io/api/health
+```
+
+> **Пароль демо** (`orakul_demo_password_v1`) намеренно публичный — данные синтетические, сбрасываются при рестарте. Любые правки UI-пользователя видны до следующего рестарта. **Никогда** не использовать этот пароль на проде.
 
 ### 8.4. Управление nginx
 
