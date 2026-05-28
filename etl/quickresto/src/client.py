@@ -365,3 +365,13 @@ class QuickRestoClient:
             "ru.edgex.quickresto.modules.warehouse.documents.processing.ProcessingInvoice",
             limit=limit, offset=offset,
         )
+
+    # ── Revenue: Shift (кассовые смены) ─────────────────────────
+
+    async def list_shifts(self, limit: int | None = None, offset: int = 0) -> list:
+        """Кассовые смены (Shift) — для revenue"""
+        return await self.list_entities(
+            "front.zreport",
+            "ru.edgex.quickresto.modules.front.zreport.Shift",
+            limit=limit, offset=offset,
+        )

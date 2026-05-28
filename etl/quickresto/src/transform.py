@@ -1,13 +1,8 @@
 """
 Transform layer: QuickResto API records → Orakul data model.
+Updated for real recon data (no OrderInfo available, using Shift for revenue).
 
-Каждая функция принимает raw dict из QR API
-и возвращает dict(ы) в формате Orakul (или None при skip).
-
-UUID-генерация: uuid5(NAMESPACE_DNS, f"qr-{record_type}-{qr_id}")
-чтобы при повторном импорте ID оставались стабильными.
-
-Dependencies: uuid (stdlib)
+Priority: Revenue > Stock > Dishes
 """
 
 from __future__ import annotations
@@ -15,35 +10,52 @@ from __future__ import annotations
 import json
 import logging
 import re
+from datetime import datetime
 from typing import Any
-from uuid import UUID, uuid5, NAMESPACE_DNS
+from uuid import NAMESPACE_DNS, uuid5
 
 logger = logging.getLogger(__name__)
 
 # ── UUID helpers ──────────────────────────────────────────────
 
 def _make_uuid(record_type: str, qr_id: str | int | None) -> str:
-    """Детерминированный UUID из QR id."""
     if qr_id is None:
         raise ValueError("qr_id is None")
     return str(uuid5(NAMESPACE_DNS, f"qr-{record_type}-{qr_id}"))
 
 
 def _unwrap_ref(ref_dict: dict | None) -> dict:
-    """Извлекает {id, name} из nested ref-объекта QR."""
     if not isinstance(ref_dict, dict):
         return {}
     return {
         "id": ref_dict.get("id"),
-        "name": ref_dict.get("name", ref_dict.get("shortName", "")),
+        "name": ref_dict.get("name", ref_dict.get("shortName", "")) or "",
     }
 
-# ── Venue ───────────────────────────────────────────────────────
+
+def _parse_date(dt_str: str) -> str | None:
+    """QR datetime → YYYY-MM-DD."""
+    if not dt_str:
+        return None
+    try:
+        return dt_str[:10]
+    except:
+        return None
+
+
+def _parse_dt(dt_str: str) -> str | None:
+    """Полный ISO datetime."""
+    if not dt_str:
+        return None
+    try:
+        # QR: 2026-05-28T19:59:47.000Z
+        return dt_str.replace("Z", "+00:00")
+    except:
+        return dt_str
+
+# ── Venue ─────────────────────────────────────────────────────
 
 def transform_company(data: dict, venue_id: str | None = None) -> dict | None:
-    """
-    CompanyInfo → venue
-    """
     if not data or not isinstance(data, dict):
         return None
     qr_id = data.get("id")
@@ -57,18 +69,13 @@ def transform_company(data: dict, venue_id: str | None = None) -> dict | None:
         "isDefault": True,
     }
 
-# ── Products (SingleProduct / SemiProduct) ──────────────────────
+# ── Products ────────────────────────────────────────────────────
 
 def transform_product(data: dict, venue_id: str) -> dict | None:
-    """
-    SingleProduct / SemiProduct → product
-    """
     if not data or not isinstance(data, dict):
         return None
-
-    # Пропускаем категории (они идут вместе с продуктами)
-    class_name = data.get("className", "")
-    if "Category" in class_name:
+    # Пропускаем категории
+    if "Category" in data.get("className", ""):
         return None
 
     qr_id = data.get("id")
@@ -76,113 +83,74 @@ def transform_product(data: dict, venue_id: str) -> dict | None:
         return None
 
     measure = _unwrap_ref(data.get("measureUnit"))
-    category_name = data.get("itemTitle", data.get("name", ""))
 
     return {
         "type": "product",
         "id": _make_uuid("product", qr_id),
         "venueId": venue_id,
-        "name": data.get("name", category_name),
-        "unit": measure.get("name", "кг"),
-        "category": category_name,
+        "name": data.get("name", data.get("itemTitle", "")) or data.get("itemTitle", "Без названия"),
+        "unit": measure.get("name") or _map_unit(measure.get("id")) or "кг",
+        "category": data.get("itemTitle", ""),
     }
 
-# ── Dishes ──────────────────────────────────────────────────────
+
+def _map_unit(measure_id: int | None) -> str:
+    """Map measure unit id to name."""
+    mapping: dict[int | None, str] = {1: "шт", 2: "кг", 3: "л", 4: "порц"}
+    return mapping.get(measure_id, "кг")
+
+# ── Dishes ────────────────────────────────────────────────────
 
 def transform_dish(data: dict, venue_id: str) -> dict | None:
-    """
-    Dish (с ingredients из recipe) → dish
-    """
     if not data or not isinstance(data, dict):
         return None
-
-    # Пропускаем категории
-    class_name = data.get("className", "")
-    if "Category" in class_name:
+    if "Category" in data.get("className", ""):
         return None
 
     qr_id = data.get("id")
     if qr_id is None:
         return None
 
-    measure = _unwrap_ref(data.get("measureUnit"))
-
-    # Ингредиенты: из dish.modifierLinks[]
-    # В QR рецептура хранится в modifierLinks — массив с полями:
-    #   {product: {id, name}, quantity, measureUnit}
+    # Ингредиенты из modifierLinks
     ingredients = []
     for mod in data.get("modifierLinks", []):
         if not isinstance(mod, dict):
             continue
-        product_ref = _unwrap_ref(mod.get("product"))
-        qty = mod.get("quantity", 0)
-        if product_ref.get("id") and qty:
+        product_ref = mod.get("modifier", {})
+        pid = product_ref.get("id")
+        if pid:
             ingredients.append({
-                "productId": _make_uuid("product", product_ref["id"]),
-                "quantity": float(qty),
+                "productId": _make_uuid("product", pid),
+                "quantity": float(mod.get("minValue", 0) or 0),
             })
 
-    # Альтернативно: recipe может быть строкой (plain text)
-    recipe_text = data.get("recipe", "")
-    if recipe_text and not ingredients:
-        # Парсим текстовый рецепт (fallback)
-        ingredients = _parse_recipe(recipe_text)
+    # Цена из dishSales[0].price или basePriceInList
+    sell_price = data.get("basePriceInList", 0) or data.get("minimalPrice", 0) or 0
+    sales = data.get("dishSales", [])
+    if sales and isinstance(sales[0], dict):
+        sell_price = sales[0].get("price", sell_price) or sell_price
 
     return {
         "type": "dish",
         "id": _make_uuid("dish", qr_id),
         "venueId": venue_id,
-        "name": data.get("name", ""),
-        "category": data.get("itemTitle", data.get("category", "")) or "",
+        "name": data.get("name", data.get("itemTitle", "")) or "Без названия",
+        "category": data.get("itemTitle", data.get("name", "")) or "",
         "active": data.get("displayOnTerminal", True) is not False,
-        "sellPrice": data.get("basePriceInList", 0) or data.get("minimalPrice", 0) or 0,
+        "sellPrice": sell_price,
         "ingredients": ingredients,
     }
-
-
-def _parse_recipe(recipe: str) -> list[dict]:
-    """
-    Парсит текстовый рецепт формата:
-      'ингредиент - 0.5 кг'
-    Возвращает [{productId: ?, quantity: ?}] — productId будет None, нужно match по имени.
-    """
-    ingredients = []
-    if not recipe:
-        return ingredients
-    # Простейший парсинг: каждая строка — 'название - количество ед'
-    for line in recipe.strip().split("\n"):
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        # Ищем паттерн: текст - число единица
-        m = re.match(r"(.+?)\s*[-–]\s*(\d+[.,]?\d*)\s*(.*)", line)
-        if m:
-            name, qty_str, unit = m.groups()
-            try:
-                qty = float(qty_str.replace(",", "."))
-            except ValueError:
-                qty = 0
-            ingredients.append({
-                "productName": name.strip(),
-                "quantity": qty,
-                "unit": unit.strip() or "кг",
-                "productId": None,  # нужно match по имени
-            })
-    return ingredients
 
 # ── Suppliers ───────────────────────────────────────────────────
 
 def transform_supplier(data: dict) -> dict | None:
-    """
-    Organization (provider) → supplier
-    """
     if not data or not isinstance(data, dict):
         return None
     qr_id = data.get("id")
     if qr_id is None:
         return None
 
-    name = data.get("name", data.get("shortName", "Поставщик без имени"))
+    name = data.get("name", data.get("shortName", "Поставщик без имени")) or data.get("shortName", "Поставщик без имени")
     return {
         "type": "supplier",
         "id": _make_uuid("supplier", qr_id),
@@ -192,47 +160,9 @@ def transform_supplier(data: dict) -> dict | None:
         "status": "active" if data.get("deleted") is not True else "paused",
     }
 
-
-def transform_supplier_item(data: dict, supplier_id: str, product_map: dict[str, str] | None = None) -> dict | None:
-    """
-    ConcreteProvider (организация-поставщик-магазин) → supplier_item
-    """
-    if not data or not isinstance(data, dict):
-        return None
-    qr_id = data.get("id")
-    if qr_id is None:
-        return None
-
-    measure = _unwrap_ref(data.get("measureUnit"))
-    name = data.get("name", data.get("itemTitle", ""))
-
-    # Ищем productId по имени если передан маппинг
-    product_id = None
-    if product_map and name:
-        product_id = product_map.get(name)
-
-    return {
-        "type": "supplier_item",
-        "id": _make_uuid("supplier_item", qr_id),
-        "supplierId": supplier_id,
-        "productId": product_id,
-        "itemName": name,
-        "unit": measure.get("name", "кг"),
-        "price": data.get("price", 0) or 0,
-        "currency": "BYN",  # QR работает в БЕЛ КОП
-        "minQty": 0,
-        "deliveryDays": 1,
-    }
-
-# ── Orders / Incoming (Receipt) ─────────────────────────────────
+# ── Incoming Invoice → order + stock_entry (receipt) ──────────
 
 def transform_incoming_invoice(data: dict, venue_id: str) -> tuple[dict, list[dict]] | None:
-    """
-    IncomingInvoice → (order, [stock_entry, ...])
-
-    Возвращает кортеж: (order_dict, [stock_entry, ...])
-    Если приход уже обработан (processed=True) — stock_entry создаём.
-    """
     if not data or not isinstance(data, dict):
         return None
     qr_id = data.get("id")
@@ -240,49 +170,44 @@ def transform_incoming_invoice(data: dict, venue_id: str) -> tuple[dict, list[di
         return None
 
     provider = _unwrap_ref(data.get("provider"))
-    store = _unwrap_ref(data.get("store"))
-    date_str = data.get("invoiceDate", "")
+    invoice_date = _parse_date(data.get("invoiceDate", ""))
 
-    # Order
+    order_id = _make_uuid("order", qr_id)
+
     order = {
         "type": "order",
-        "id": _make_uuid("order", qr_id),
+        "id": order_id,
         "venueId": venue_id,
-        "supplierId": _make_uuid("supplier", provider.get("id")) if provider.get("id") else None,
+        "supplierId": _make_uuid("supplier", provider["id"]) if provider.get("id") else None,
         "number": data.get("documentNumber", f"QR-{qr_id}"),
         "status": "received" if data.get("processed") else "submitted",
         "totalAmount": data.get("totalSum", 0) or data.get("totalSumWoNds", 0) or 0,
         "currency": "BYN",
-        "desiredDate": date_str[:10] if date_str else None,
-        "receivedAt": date_str if data.get("processed") else None,
-        "items": [],  # QR API не возвращает линии в list, нужно /api/read
+        "desiredDate": invoice_date,
+        "receivedAt": data.get("invoiceDate") if data.get("processed") else None,
+        "items": [],  # Детали через /api/read отдельно
     }
 
-    # Stock entry — receipt при processed
     stock_entries = []
     if data.get("processed"):
         stock_entries.append({
             "type": "stock_entry",
             "id": _make_uuid("stock_receipt", qr_id),
             "venueId": venue_id,
-            # productId будет None — нужно парсить линии из /api/read
             "productId": None,
             "kind": "receipt",
             "delta": data.get("totalAmount", 0) or 0,
-            "resulting": None,  # нужно вычислять
-            "source": "integration",
+            "resulting": None,
+            "source": "quickresto",
             "externalId": str(qr_id),
-            "note": f"Приход {data.get('documentNumber', '')} от {provider.get('name', '')}",
+            "note": f"Приход {data.get('documentNumber', '')} от {provider.get('name', '')}"[:500],
         })
 
     return order, stock_entries
 
-# ── Discard Invoice (Writeoff) ──────────────────────────────────
+# ── Discard Invoice → stock_entry (writeoff) ──────────────────
 
 def transform_discard_invoice(data: dict, venue_id: str) -> dict | None:
-    """
-    DiscardInvoice → stock_entry (kind=writeoff)
-    """
     if not data or not isinstance(data, dict):
         return None
     qr_id = data.get("id")
@@ -290,35 +215,29 @@ def transform_discard_invoice(data: dict, venue_id: str) -> dict | None:
         return None
 
     reason = _unwrap_ref(data.get("discardReason"))
-    store = _unwrap_ref(data.get("store"))
-    date_str = data.get("invoiceDate", "")
 
     return {
         "type": "stock_entry",
         "id": _make_uuid("stock_discard", qr_id),
         "venueId": venue_id,
-        "productId": None,  # нужно парсить линии из /api/read
+        "productId": None,
         "kind": "writeoff",
         "delta": -(data.get("totalAmount", 0) or 0),
         "resulting": None,
-        "source": "integration",
+        "source": "quickresto",
         "externalId": str(qr_id),
-        "note": f"Списание {data.get('documentNumber', '')}: {data.get('comment', '') or reason.get('name', '')}",
+        "note": f"Списание {data.get('documentNumber', '')}: {data.get('comment', '') or reason.get('name', '')}"[:500],
     }
 
-# ── Inventory ───────────────────────────────────────────────────
+# ── Inventory → stock_entry (inventory) ────────────────────────
 
 def transform_inventory(data: dict, venue_id: str) -> dict | None:
-    """
-    InventoryDocument2 → stock_entry (kind=inventory)
-    """
     if not data or not isinstance(data, dict):
         return None
     qr_id = data.get("id")
     if qr_id is None:
         return None
 
-    date_str = data.get("invoiceDate", "")
     shortfall = data.get("shortfallSum", 0) or 0
     surplus = data.get("surplusSum", 0) or 0
 
@@ -328,79 +247,24 @@ def transform_inventory(data: dict, venue_id: str) -> dict | None:
         "venueId": venue_id,
         "productId": None,
         "kind": "inventory",
-        "delta": -(shortfall) + surplus,  # отрицательная = недостача, положительная = излишек
+        "delta": -(shortfall) + surplus,
         "resulting": data.get("totalAmount", 0) or 0,
-        "source": "integration",
+        "source": "quickresto",
         "externalId": str(qr_id),
         "note": f"Инвентаризация {data.get('documentNumber', '')}: {data.get('comment', '')}"[:500],
     }
 
-# ── Revenue (OrderInfo) ─────────────────────────────────────────
-
-def transform_order_info(data: dict, venue_id: str) -> dict | None:
-    """
-    OrderInfo (чек) → revenue_entry
-
-    Пока упрощённо: считаем что каждый OrderInfo = 1 запись revenue
-    с суммой totalSum за дату.
-    """
-    if not data or not isinstance(data, dict):
-        return None
-    qr_id = data.get("id")
-    if qr_id is None:
-        return None
-
-    date_str = data.get("openDate", data.get("closeDate", ""))
-    total = data.get("totalSum", 0) or data.get("totalSumWoNds", 0) or 0
-
-    return {
-        "type": "revenue_entry",
-        "id": _make_uuid("revenue", qr_id),
-        "venueId": venue_id,
-        "date": date_str[:10] if date_str else None,
-        "amount": total,
-        "source": "quickresto",
-        "externalId": str(qr_id),
-    }
-
-# ── Dish Sales ──────────────────────────────────────────────────
-
-def transform_dish_sale(data: dict, venue_id: str) -> dict | None:
-    """
-    OrderInfo.items[] / dishSales → dish_sale
-
-    QR не возвращает dish_sales напрямую — они вычисляются из OrderInfo.
-    Эта функция принимает один элемент "line" из чека.
-    """
-    if not data or not isinstance(data, dict):
-        return None
-    dish_ref = _unwrap_ref(data.get("dish"))
-    qr_id = data.get("id")
-    if not dish_ref.get("id") or qr_id is None:
-        return None
-
-    date_str = data.get("date", data.get("closeDate", ""))
-
-    return {
-        "type": "dish_sale",
-        "id": _make_uuid("dish_sale", qr_id),
-        "venueId": venue_id,
-        "dishId": _make_uuid("dish", dish_ref["id"]),
-        "date": date_str[:10] if date_str else None,
-        "count": data.get("quantity", 1),
-    }
-
-# ── Cancellation → stock_entry ──────────────────────────────────
+# ── Cancellation → stock_entry (writeoff) ─────────────────────
 
 def transform_cancellation(data: dict, venue_id: str) -> dict | None:
-    """
-    Cancellation → stock_entry (kind=writeoff)  
-    """
     if not data or not isinstance(data, dict):
         return None
     qr_id = data.get("id")
     if qr_id is None:
         return None
+
+    comment = data.get("comment", "")
+    description = data.get("description", "")
 
     return {
         "type": "stock_entry",
@@ -408,47 +272,88 @@ def transform_cancellation(data: dict, venue_id: str) -> dict | None:
         "venueId": venue_id,
         "productId": None,
         "kind": "writeoff",
-        "delta": 0,
+        "delta": 0,  # Отмена без списания
         "resulting": None,
-        "source": "integration",
+        "source": "quickresto",
         "externalId": str(qr_id),
-        "note": f"Отмена: {data.get('comment', '') or data.get('description', '')}"[:500],
+        "note": f"Отмена: {comment or description}"[:500],
+    }
+
+# ── Shift → revenue_entry (CRITICAL) ────────────────────────────
+
+def transform_shift(data: dict, venue_id: str) -> dict | None:
+    """
+    Кассовая смена (Shift) → revenue_entry.
+
+    shift.totalCash + shift.totalCard = дневная выручка.
+    shift.ordersCount = количество заказов.
+    """
+    if not data or not isinstance(data, dict):
+        return None
+    qr_id = data.get("id")
+    if qr_id is None:
+        return None
+
+    closed_date = _parse_date(data.get("closed", ""))
+    if not closed_date:
+        closed_date = _parse_date(data.get("localClosedTime", ""))
+
+    # Выручка = наличные + карта - возвраты
+    revenue = 0.0
+    for field in ["totalCash", "totalCard", "totalBonuses"]:
+        revenue += data.get(field, 0) or 0
+    for field in ["totalReturnCash", "totalReturnCard", "totalReturnBonuses"]:
+        revenue -= data.get(field, 0) or 0
+
+    return {
+        "type": "revenue_entry",
+        "id": _make_uuid("shift", qr_id),
+        "venueId": venue_id,
+        "date": closed_date,
+        "amount": round(revenue, 2),
+        "source": "quickresto",
+        "externalId": str(qr_id),
+        "meta": {
+            "ordersCount": data.get("ordersCount", 0),
+            "shiftNumber": data.get("shiftNumber", 0),
+            "totalCash": data.get("totalCash", 0),
+            "totalCard": data.get("totalCard", 0),
+            "nonFiscalTotalCash": data.get("nonFiscalTotalCash", 0),
+        },
+    }
+
+
+# ── Employee ──────────────────────────────────────────────────
+
+def transform_employee(data: dict) -> dict | None:
+    if not data or not isinstance(data, dict):
+        return None
+    qr_id = data.get("id")
+    if qr_id is None:
+        return None
+
+    return {
+        "type": "employee",
+        "id": _make_uuid("employee", qr_id),
+        "name": data.get("fullName", data.get("shortName", "")),
+        "role": data.get("systemEmployee", ""),
     }
 
 # ── Batch helpers ───────────────────────────────────────────────
 
 def transform_products(raw_items: list[dict], venue_id: str) -> list[dict]:
-    """Список SingleProduct/SemiProduct → product[]"""
-    result = []
-    for item in raw_items:
-        t = transform_product(item, venue_id)
-        if t:
-            result.append(t)
-    return result
+    return [t for t in (transform_product(i, venue_id) for i in raw_items) if t]
 
 
 def transform_dishes(raw_items: list[dict], venue_id: str) -> list[dict]:
-    """Список Dish → dish[]"""
-    result = []
-    for item in raw_items:
-        t = transform_dish(item, venue_id)
-        if t:
-            result.append(t)
-    return result
+    return [t for t in (transform_dish(i, venue_id) for i in raw_items) if t]
 
 
 def transform_suppliers(raw_items: list[dict]) -> list[dict]:
-    """Список Organization → supplier[]"""
-    result = []
-    for item in raw_items:
-        t = transform_supplier(item)
-        if t:
-            result.append(t)
-    return result
+    return [t for t in (transform_supplier(i) for i in raw_items) if t]
 
 
 def transform_incoming_invoices(raw_items: list[dict], venue_id: str) -> tuple[list[dict], list[dict]]:
-    """Список IncomingInvoice → (orders[], stock_entries[])"""
     orders = []
     entries = []
     for item in raw_items:
@@ -468,17 +373,14 @@ def transform_inventories(raw_items: list[dict], venue_id: str) -> list[dict]:
     return [t for t in (transform_inventory(i, venue_id) for i in raw_items) if t]
 
 
-def transform_order_infos(raw_items: list[dict], venue_id: str) -> list[dict]:
-    return [t for t in (transform_order_info(i, venue_id) for i in raw_items) if t]
-
-
 def transform_cancellations(raw_items: list[dict], venue_id: str) -> list[dict]:
     return [t for t in (transform_cancellation(i, venue_id) for i in raw_items) if t]
 
 
-# ── Diagnostic ────────────────────────────────────────────────
+def transform_shifts(raw_items: list[dict], venue_id: str) -> list[dict]:
+    """Смены → revenue_entry[]"""
+    return [t for t in (transform_shift(i, venue_id) for i in raw_items) if t]
 
-if __name__ == "__main__":
-    # Smoke test
-    print("Transform module loaded. UUID namespace:", NAMESPACE_DNS)
-    print("UUID example:", _make_uuid("product", 123))
+
+def transform_employees(raw_items: list[dict]) -> list[dict]:
+    return [t for t in (transform_employee(i) for i in raw_items) if t]

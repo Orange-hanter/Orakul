@@ -39,10 +39,11 @@ from transform import (
     transform_cancellations,
     transform_dishes,
     transform_discard_invoices,
+    transform_employees,
     transform_incoming_invoices,
     transform_inventories,
-    transform_order_infos,
     transform_products,
+    transform_shifts,
     transform_suppliers,
 )
 
@@ -167,6 +168,26 @@ async def run_sync():
         total_transformed += len(cancellations)
         total_db += len(cancellations)
         logger.info("[%s] Cancellations: %d raw → %d stock_entries", "cancellation", len(raw_cancellations), len(cancellations))
+
+        # ── 9. Shifts (revenue_entry) ───────────────────────────
+        raw_shifts = await client.list_shifts(limit=SYNC_LIMIT or None)
+        shifts = transform_shifts(raw_shifts, venue_id)
+        db.upsert_many(shifts)
+        total_fetched += len(raw_shifts)
+        total_transformed += len(shifts)
+        total_db += len(shifts)
+        revenue_total = sum(s.get("amount", 0) for s in shifts)
+        logger.info("[%s] Shifts: %d raw → %d revenue_entries (%.2f BYN)",
+                     "revenue", len(raw_shifts), len(shifts), revenue_total)
+
+        # ── 10. Employees ────────────────────────────────────────
+        raw_employees = await client.list_employees(limit=SYNC_LIMIT or None)
+        employees = transform_employees(raw_employees)
+        db.upsert_many(employees)
+        total_fetched += len(raw_employees)
+        total_transformed += len(employees)
+        total_db += len(employees)
+        logger.info("[%s] Employees: %d raw → %d", "employee", len(raw_employees), len(employees))
 
     # ── Summary ─────────────────────────────────────────────────
     duration = time.time() - start_time
