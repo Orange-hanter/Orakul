@@ -1,0 +1,5 @@
+# ETL secrets — never commit
+**/.env
+**/data/
+**/__pycache__/
+**/*.pyc

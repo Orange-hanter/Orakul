@@ -10,7 +10,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # Путь к корню проекта Orakul
-PROJECT_ROOT = Path(__file__).resolve().parents[3]  # etl/quickresto/src → etl/quickresto → etl → Orakul
+PROJECT_ROOT = Path(__file__).resolve().parents[2]  # etl/quickresto/src → etl/quickresto → Orakul
 
 # Смотрим .env — более специфичные приоритетнее
 def _load_env():

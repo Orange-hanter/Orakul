@@ -1,254 +1,213 @@
 """
-Database layer — абстракция над SQLite (MVP) и PostgreSQL (production).
+Lightweight SQLite wrapper for Orakul ETL.
 
-Асинхронный доступ через aiosqlite (SQLite) или asyncpg (PostgreSQL).
-Единый интерфейс для обоих backend'ов.
+- Создаёт таблицы под модель Orakul (venue, product, stock_entry, supplier,
+  supplier_item, order, dish, revenue_entry, ...)
+- Upsert = INSERT OR REPLACE
+- Get by id / type
+- List all by type
 """
+
+from __future__ import annotations
 
 import json
 import logging
 import sqlite3
 from datetime import datetime
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any
 
 from config import config
 
 logger = logging.getLogger(__name__)
 
-# Пробуем импортировать asyncpg — если не установлен, fallback на SQLite
-_uses_postgres = config.DB_BACKEND == 'postgres'
-try:
-    if _uses_postgres:
-        import asyncpg
-        _asyncpg_available = True
-    else:
-        _asyncpg_available = False
-except ImportError:
-    _uses_postgres = False
-    _asyncpg_available = False
-    logger.warning("asyncpg not installed, using SQLite backend")
+# ── Schema ──────────────────────────────────────────────────────
 
-# Для SQLite используем aiosqlite
-try:
-    import aiosqlite
-    _aiosqlite_available = True
-except ImportError:
-    _aiosqlite_available = False
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS orakul_records (
+    id          TEXT PRIMARY KEY,
+    type        TEXT NOT NULL,
+    venue_id    TEXT,
+    data        TEXT NOT NULL,  -- JSON
+    created_at  TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TEXT DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_type ON orakul_records(type);
+CREATE INDEX IF NOT EXISTS idx_venue ON orakul_records(venue_id);
+CREATE INDEX IF NOT EXISTS idx_updated ON orakul_records(updated_at);
 
+CREATE TABLE IF NOT EXISTS etl_sync_log (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    source      TEXT NOT NULL,    -- 'quickresto'
+    entity      TEXT NOT NULL,    -- 'product', 'dish', ...
+    action      TEXT NOT NULL,    -- 'fetch', 'transform', 'upsert'
+    count       INTEGER DEFAULT 0,
+    duration_ms INTEGER,
+    error       TEXT,
+    created_at  TEXT DEFAULT CURRENT_TIMESTAMP
+);
+"""
 
-class DbConnection:
-    """Унифицированный async DB-коннектор (SQLite / PostgreSQL)."""
+# ── DB class ────────────────────────────────────────────────────
 
-    def __init__(self):
-        self._conn = None
-        self._pool = None
-        self._backend = 'postgres' if (_uses_postgres and _asyncpg_available) else 'sqlite'
+class OrakulDB:
+    """SQLite DB for Orakul records."""
 
-    async def connect(self):
-        if self._backend == 'postgres':
-            self._pool = await asyncpg.create_pool(
-                config.postgres_dsn,
-                min_size=1,
-                max_size=5,
-            )
-            logger.info("DB: connected to PostgreSQL")
-        else:
-            # SQLite
-            db_path = Path(config.SQLITE_PATH)
-            db_path.parent.mkdir(parents=True, exist_ok=True)
-            self._conn = await aiosqlite.connect(str(db_path))
-            self._conn.row_factory = sqlite3.Row
-            await self._init_sqlite_schema()
-            logger.info("DB: connected to SQLite at %s", db_path)
+    def __init__(self, path: str | Path | None = None):
+        self.path = Path(path or config.SQLITE_PATH)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._init_db()
 
-    async def close(self):
-        if self._pool:
-            await self._pool.close()
-            self._pool = None
-        if self._conn:
-            await self._conn.close()
-            self._conn = None
+    # ── Connection ─────────────────────────────────────────────
 
-    async def __aenter__(self) -> 'DbConnection':
-        await self.connect()
-        return self
+    def _conn(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(str(self.path), check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL")
+        return conn
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        await self.close()
+    def _init_db(self):
+        conn = self._conn()
+        conn.executescript(SCHEMA)
+        conn.commit()
+        conn.close()
 
-    # ── Schema init (SQLite MVP) ─────────────────────────────────
+    # ── CRUD ────────────────────────────────────────────────────
 
-    async def _init_sqlite_schema(self):
-        """Создаёт таблицы SQLite если нет."""
-        schema = """
-            CREATE TABLE IF NOT EXISTS raw_imports (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                source_entity TEXT NOT NULL,
-                source_id     TEXT,
-                payload       TEXT NOT NULL,
-                import_ts     TEXT NOT NULL DEFAULT (datetime('now')),
-                etl_run_id    INTEGER,
-                location_id   TEXT,
-                is_processed  INTEGER NOT NULL DEFAULT 0
-            );
-            CREATE INDEX IF NOT EXISTS idx_raw_entity_ts ON raw_imports(source_entity, import_ts);
-            CREATE INDEX IF NOT EXISTS idx_raw_entity_sid ON raw_imports(source_entity, source_id);
-
-            CREATE TABLE IF NOT EXISTS ops_etl_runs (
-                id           INTEGER PRIMARY KEY AUTOINCREMENT,
-                run_id       TEXT UNIQUE NOT NULL,
-                started_at   TEXT NOT NULL,
-                ended_at     TEXT,
-                entity       TEXT,
-                records_processed INTEGER DEFAULT 0,
-                status       TEXT NOT NULL DEFAULT 'running',
-                error_message TEXT
-            );
-
-            CREATE TABLE IF NOT EXISTS staging_products (
-                id           INTEGER PRIMARY KEY AUTOINCREMENT,
-                source_id    TEXT NOT NULL,
-                name         TEXT NOT NULL,
-                code         TEXT,
-                unit         TEXT,
-                category     TEXT,
-                qr_data      TEXT,          -- JSON оригинала
-                venue_id     TEXT,
-                imported_at  TEXT NOT NULL DEFAULT (datetime('now')),
-                UNIQUE(source_id, venue_id)
-            );
-
-            CREATE TABLE IF NOT EXISTS staging_dishes (
-                id           INTEGER PRIMARY KEY AUTOINCREMENT,
-                source_id    TEXT NOT NULL,
-                name         TEXT NOT NULL,
-                code         TEXT,
-                unit         TEXT,
-                category     TEXT,
-                qr_data      TEXT,
-                venue_id     TEXT,
-                imported_at  TEXT NOT NULL DEFAULT (datetime('now')),
-                UNIQUE(source_id, venue_id)
-            );
-
-            CREATE TABLE IF NOT EXISTS staging_stores (
-                id           INTEGER PRIMARY KEY AUTOINCREMENT,
-                source_id    TEXT NOT NULL,
-                name         TEXT NOT NULL,
-                code         TEXT,
-                venue_id     TEXT,
-                imported_at  TEXT NOT NULL DEFAULT (datetime('now')),
-                UNIQUE(source_id, venue_id)
-            );
-
-            CREATE TABLE IF NOT EXISTS staging_recipes (
-                id           INTEGER PRIMARY KEY AUTOINCREMENT,
-                dish_source_id TEXT NOT NULL,
-                ingredient_source_id TEXT NOT NULL,
-                quantity     REAL NOT NULL,
-                unit         TEXT,
-                venue_id     TEXT,
-                imported_at  TEXT NOT NULL DEFAULT (datetime('now')),
-                UNIQUE(dish_source_id, ingredient_source_id, venue_id)
-            );
-        """
-        for stmt in schema.strip().split(';\n'):
-            stmt = stmt.strip()
-            if stmt:
-                await self._conn.execute(stmt)
-        await self._conn.commit()
-
-    # ── Generic execute / fetch ────────────────────────────────────
-
-    async def execute(self, sql: str, params: tuple = ()):
-        if self._backend == 'postgres':
-            async with self._pool.acquire() as conn:
-                await conn.execute(sql, *params)
-        else:
-            await self._conn.execute(sql, params)
-
-    async def fetchall(self, sql: str, params: tuple = ()) -> List[dict]:
-        if self._backend == 'postgres':
-            async with self._pool.acquire() as conn:
-                rows = await conn.fetch(sql, *params)
-                return [dict(r) for r in rows]
-        else:
-            async with self._conn.execute(sql, params) as cursor:
-                rows = await cursor.fetchall()
-                return [dict(row) for row in rows]
-
-    async def fetchone(self, sql: str, params: tuple = ()) -> Optional[dict]:
-        if self._backend == 'postgres':
-            async with self._pool.acquire() as conn:
-                row = await conn.fetchrow(sql, *params)
-                return dict(row) if row else None
-        else:
-            async with self._conn.execute(sql, params) as cursor:
-                row = await cursor.fetchone()
-                return dict(row) if row else None
-
-    async def insert_many(self, sql: str, records: List[tuple]):
-        """Batch INSERT с fallback на SQLite."""
-        if not records:
-            return
-        if self._backend == 'postgres':
-            # asyncpg поддерживает executemany
-            async with self._pool.acquire() as conn:
-                await conn.executemany(sql, records)
-        else:
-            await self._conn.executemany(sql, records)
-            await self._conn.commit()
-
-    # ── ETL run logging ────────────────────────────────────────────
-
-    async def start_etl_run(self, entity: str) -> str:
-        run_id = datetime.utcnow().strftime("%Y%m%d_%H%M%S_%f")
-        now = datetime.utcnow().isoformat()
-        sql = """
-            INSERT INTO ops_etl_runs (run_id, started_at, entity, status)
-            VALUES (?, ?, ?, 'running')
-        """
-        if self._backend == 'postgres':
-            sql = sql.replace('?', '$1, $2, $3, $4')
-        await self.execute(sql, (run_id, now, entity))
-        logger.info("ETL run started: %s for %s", run_id, entity)
-        return run_id
-
-    async def finish_etl_run(
-        self,
-        run_id: str,
-        status: str = 'success',
-        records_processed: int = 0,
-        error_message: Optional[str] = None,
-    ):
-        now = datetime.utcnow().isoformat()
-        sql = """
-            UPDATE ops_etl_runs
-            SET ended_at = ?, status = ?, records_processed = ?, error_message = ?
-            WHERE run_id = ?
-        """
-        if self._backend == 'postgres':
-            sql = sql.replace('?', '$1, $2, $3, $4, $5')
-        await self.execute(sql, (now, status, records_processed, error_message or '', run_id))
-        logger.info("ETL run finished: %s — %s (%s records)", run_id, status, records_processed)
-
-    # ── Raw imports ────────────────────────────────────────────────
-
-    async def insert_raw(self, entity: str, items: List[dict], etl_run_id: str, venue_id: str = ''):
-        if not items:
-            return 0
-        sql = """
-            INSERT INTO raw_imports (source_entity, source_id, payload, etl_run_id, location_id)
+    def upsert(self, record: dict) -> None:
+        """INSERT OR REPLACE одной записи."""
+        conn = self._conn()
+        conn.execute(
+            """
+            INSERT INTO orakul_records (id, type, venue_id, data, updated_at)
             VALUES (?, ?, ?, ?, ?)
-        """
-        if self._backend == 'postgres':
-            sql = sql.replace('?', '$1, $2, $3, $4, $5')
-        records = []
-        for item in items:
-            sid = str(item.get('id', ''))
-            records.append((entity, sid, json.dumps(item, ensure_ascii=False), etl_run_id, venue_id))
-        await self.insert_many(sql, records)
-        return len(records)
+            ON CONFLICT(id) DO UPDATE SET
+                type=excluded.type,
+                venue_id=excluded.venue_id,
+                data=excluded.data,
+                updated_at=excluded.updated_at
+            """,
+            (
+                record["id"],
+                record.get("type", ""),
+                record.get("venueId", record.get("venue_id", "")),
+                json.dumps(record, ensure_ascii=False, default=str),
+                datetime.utcnow().isoformat(),
+            )
+        )
+        conn.commit()
+        conn.close()
 
-__all__ = ['DbConnection']
+    def upsert_many(self, records: list[dict]) -> int:
+        """Batch upsert. Returns count."""
+        if not records:
+            return 0
+        conn = self._conn()
+        now = datetime.utcnow().isoformat()
+        rows = [
+            (
+                r["id"],
+                r.get("type", ""),
+                r.get("venueId", r.get("venue_id", "")),
+                json.dumps(r, ensure_ascii=False, default=str),
+                now,
+            )
+            for r in records
+        ]
+        conn.executemany(
+            """
+            INSERT INTO orakul_records (id, type, venue_id, data, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                type=excluded.type,
+                venue_id=excluded.venue_id,
+                data=excluded.data,
+                updated_at=excluded.updated_at
+            """,
+            rows,
+        )
+        conn.commit()
+        count = conn.total_changes
+        conn.close()
+        return count
+
+    def get(self, record_id: str) -> dict | None:
+        conn = self._conn()
+        row = conn.execute(
+            "SELECT data FROM orakul_records WHERE id = ?", (record_id,)
+        ).fetchone()
+        conn.close()
+        if row:
+            return json.loads(row["data"])
+        return None
+
+    def list_by_type(self, record_type: str, venue_id: str | None = None) -> list[dict]:
+        conn = self._conn()
+        if venue_id:
+            rows = conn.execute(
+                "SELECT data FROM orakul_records WHERE type = ? AND venue_id = ?",
+                (record_type, venue_id)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT data FROM orakul_records WHERE type = ?",
+                (record_type,)
+            ).fetchall()
+        conn.close()
+        return [json.loads(r["data"]) for r in rows]
+
+    def count_by_type(self, record_type: str, venue_id: str | None = None) -> int:
+        conn = self._conn()
+        if venue_id:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM orakul_records WHERE type = ? AND venue_id = ?",
+                (record_type, venue_id)
+            ).fetchone()
+        else:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM orakul_records WHERE type = ?",
+                (record_type,)
+            ).fetchone()
+        conn.close()
+        return row[0]
+
+    # ── Sync log ────────────────────────────────────────────────
+
+    def log_sync(
+        self,
+        source: str,
+        entity: str,
+        action: str,
+        count: int = 0,
+        duration_ms: int = 0,
+        error: str | None = None,
+    ) -> None:
+        conn = self._conn()
+        conn.execute(
+            """
+            INSERT INTO etl_sync_log (source, entity, action, count, duration_ms, error)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (source, entity, action, count, duration_ms, error),
+        )
+        conn.commit()
+        conn.close()
+
+    def get_sync_log(self, limit: int = 50) -> list[dict]:
+        conn = self._conn()
+        rows = conn.execute(
+            """
+            SELECT * FROM etl_sync_log
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (limit,)
+        ).fetchall()
+        conn.close()
+        return [dict(r) for r in rows]
+
+
+if __name__ == "__main__":
+    db = OrakulDB()
+    print(f"DB: {db.path} — created/connected")
+    print(f"Tables: orakul_records, etl_sync_log")

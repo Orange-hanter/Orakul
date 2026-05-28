@@ -167,7 +167,7 @@ class QuickRestoClient:
         self,
         module_name: str,
         class_name: str,
-        limit: int = None,
+        limit: int | None = None,
         offset: int = 0,
         filters: Optional[list] = None,
         **extra_params
@@ -205,7 +205,8 @@ class QuickRestoClient:
 
     # ── High-level: именно нужные сущности ─────────────────────────
 
-    async def list_dishes(self, limit: int = None, offset: int = 0) -> list:
+    # Все entity-методы принимают limit как Optional
+    async def list_dishes(self, limit: int | None = None, offset: int = 0) -> list:
         """Блюда (Dish)"""
         return await self.list_entities(
             "warehouse.nomenclature.dish",
@@ -213,7 +214,7 @@ class QuickRestoClient:
             limit=limit, offset=offset,
         )
 
-    async def list_ingredients(self, limit: int = None, offset: int = 0) -> list:
+    async def list_ingredients(self, limit: int | None = None, offset: int = 0) -> list:
         """Ингредиенты (SingleProduct)"""
         return await self.list_entities(
             "warehouse.nomenclature.singleproduct",
@@ -221,7 +222,7 @@ class QuickRestoClient:
             limit=limit, offset=offset,
         )
 
-    async def list_semiproducts(self, limit: int = None, offset: int = 0) -> list:
+    async def list_semiproducts(self, limit: int | None = None, offset: int = 0) -> list:
         """Полуфабрикаты (SemiProduct)"""
         return await self.list_entities(
             "warehouse.nomenclature.semiproduct",
@@ -229,7 +230,7 @@ class QuickRestoClient:
             limit=limit, offset=offset,
         )
 
-    async def list_stores(self, limit: int = None, offset: int = 0) -> list:
+    async def list_stores(self, limit: int | None = None, offset: int = 0) -> list:
         """Склады (Store)"""
         return await self.list_entities(
             "warehouse.store",
@@ -237,7 +238,7 @@ class QuickRestoClient:
             limit=limit, offset=offset,
         )
 
-    async def list_providers(self, limit: int = None, offset: int = 0) -> list:
+    async def list_providers(self, limit: int | None = None, offset: int = 0) -> list:
         """Поставщики (Organization)"""
         return await self.list_entities(
             "warehouse.providers",
@@ -245,7 +246,7 @@ class QuickRestoClient:
             limit=limit, offset=offset,
         )
 
-    async def list_concrete_providers(self, limit: int = None, offset: int = 0) -> list:
+    async def list_concrete_providers(self, limit: int | None = None, offset: int = 0) -> list:
         """Конкретные поставщики (ConcreteProvider)"""
         return await self.list_entities(
             "warehouse.providers.concrete",
@@ -253,7 +254,7 @@ class QuickRestoClient:
             limit=limit, offset=offset,
         )
 
-    async def list_incoming_invoices(self, limit: int = None, offset: int = 0) -> list:
+    async def list_incoming_invoices(self, limit: int | None = None, offset: int = 0) -> list:
         """Приходные накладные (IncomingInvoice)"""
         return await self.list_entities(
             "warehouse.documents.incoming",
@@ -261,7 +262,7 @@ class QuickRestoClient:
             limit=limit, offset=offset,
         )
 
-    async def list_discard_invoices(self, limit: int = None, offset: int = 0) -> list:
+    async def list_discard_invoices(self, limit: int | None = None, offset: int = 0) -> list:
         """Акты списания (DiscardInvoice)"""
         return await self.list_entities(
             "warehouse.documents.discard",
@@ -269,7 +270,7 @@ class QuickRestoClient:
             limit=limit, offset=offset,
         )
 
-    async def list_cooking_invoices(self, limit: int = None, offset: int = 0) -> list:
+    async def list_cooking_invoices(self, limit: int | None = None, offset: int = 0) -> list:
         """Акты приготовления (CookingInvoice)"""
         return await self.list_entities(
             "warehouse.documents.cooking",
@@ -277,7 +278,7 @@ class QuickRestoClient:
             limit=limit, offset=offset,
         )
 
-    async def list_inventory(self, limit: int = None, offset: int = 0) -> list:
+    async def list_inventory(self, limit: int | None = None, offset: int = 0) -> list:
         """Инвентаризация (InventoryDocument2)"""
         return await self.list_entities(
             "warehouse.inventory.document.v2",
@@ -285,7 +286,7 @@ class QuickRestoClient:
             limit=limit, offset=offset,
         )
 
-    async def list_orders(self, limit: int = None, offset: int = 0) -> list:
+    async def list_orders(self, limit: int | None = None, offset: int = 0) -> list:
         """Чеки (OrderInfo)"""
         return await self.list_entities(
             "front.orders",
@@ -293,7 +294,7 @@ class QuickRestoClient:
             limit=limit, offset=offset,
         )
 
-    async def list_cancellations(self, limit: int = None, offset: int = 0) -> list:
+    async def list_cancellations(self, limit: int | None = None, offset: int = 0) -> list:
         """Отмены (Cancellation)"""
         return await self.list_entities(
             "front.cancellations",
@@ -301,7 +302,7 @@ class QuickRestoClient:
             limit=limit, offset=offset,
         )
 
-    async def list_employees(self, limit: int = None, offset: int = 0) -> list:
+    async def list_employees(self, limit: int | None = None, offset: int = 0) -> list:
         """Сотрудники (Employee)"""
         return await self.list_entities(
             "personnel.employee",
@@ -317,7 +318,7 @@ class QuickRestoClient:
             limit=1, offset=0,
         )
 
-    async def list_businesses(self, limit: int = None, offset: int = 0) -> list:
+    async def list_businesses(self, limit: int | None = None, offset: int = 0) -> list:
         """Бизнесы (Business)"""
         return await self.list_entities(
             "core.company.businesses",
@@ -325,7 +326,7 @@ class QuickRestoClient:
             limit=limit, offset=offset,
         )
 
-    async def list_measure_units(self, limit: int = None, offset: int = 0) -> list:
+    async def list_measure_units(self, limit: int | None = None, offset: int = 0) -> list:
         """Единицы измерения (MeasureUnit)"""
         return await self.list_entities(
             "core.dictionaries.measureunits",
@@ -333,7 +334,7 @@ class QuickRestoClient:
             limit=limit, offset=offset,
         )
 
-    async def list_dish_categories(self, limit: int = None, offset: int = 0) -> list:
+    async def list_dish_categories(self, limit: int | None = None, offset: int = 0) -> list:
         """Категории блюд (DishCategory)"""
         return await self.list_entities(
             "warehouse.nomenclature.dish",
@@ -341,7 +342,7 @@ class QuickRestoClient:
             limit=limit, offset=offset,
         )
 
-    async def list_outgoing_invoices(self, limit: int = None, offset: int = 0) -> list:
+    async def list_outgoing_invoices(self, limit: int | None = None, offset: int = 0) -> list:
         """Расходные накладные (OutgoingInvoice)"""
         return await self.list_entities(
             "warehouse.documents.outgoing",
@@ -349,7 +350,7 @@ class QuickRestoClient:
             limit=limit, offset=offset,
         )
 
-    async def list_decomposition_invoices(self, limit: int = None, offset: int = 0) -> list:
+    async def list_decomposition_invoices(self, limit: int | None = None, offset: int = 0) -> list:
         """Акты разбора (DecompositionInvoice)"""
         return await self.list_entities(
             "warehouse.documents.decomposition",
@@ -357,7 +358,7 @@ class QuickRestoClient:
             limit=limit, offset=offset,
         )
 
-    async def list_processing_invoices(self, limit: int = None, offset: int = 0) -> list:
+    async def list_processing_invoices(self, limit: int | None = None, offset: int = 0) -> list:
         """Акты переработки (ProcessingInvoice)"""
         return await self.list_entities(
             "warehouse.documents.processing",
