@@ -12,16 +12,24 @@ from dotenv import load_dotenv
 # Путь к корню проекта Orakul
 PROJECT_ROOT = Path(__file__).resolve().parents[3]  # etl/quickresto/src → etl/quickresto → etl → Orakul
 
-# Смотрим .env в корне Orakul и рядом с ETL
+# Смотрим .env — более специфичные приоритетнее
 def _load_env():
-    for p in [
+    # Поиск: сначала ETL-корень (наиболее специфичный), потом общий
+    paths = [
+        Path(__file__).parent.parent / '.env',   # etl/quickresto/.env
         PROJECT_ROOT / '.env',
         PROJECT_ROOT / 'app' / '.env',
-        Path(__file__).parent / '.env',
-    ]:
+    ]
+    for p in paths:
         if p.exists():
-            load_dotenv(p, override=False)
-            break
+            load_dotenv(p, override=True)  # последний загруженный выигрывает
+            break  # берем первый найденный из приоритизированного списка
+
+
+def _print_env_debug():
+    """Выводит найденные переменные для диагностики."""
+    for key in ('QR_USERNAME', 'QR_PASSWORD', 'QR_BASE_URL', 'QR_SSL_VERIFY'):
+        print(f"  {key}={os.getenv(key, '')}")
 
 _load_env()
 
@@ -32,8 +40,10 @@ class Config:
     # ── QuickResto API ─────────────────────────────────────────────
     QR_BASE_URL: str = os.getenv('QR_BASE_URL', '')
     QR_USERNAME: str = os.getenv('QR_USERNAME', '')
-    QR_PASSWORD: str = os.getenv('QR_PASSWORD', '')  # raw пароль; hex-encode делает client
-    QR_LAYER:    str = os.getenv('QR_LAYER', 'web')  # web / eu и т.д.
+    QR_PASSWORD: str = os.getenv('QR_PASSWORD', '')
+    QR_LAYER:    str = os.getenv('QR_LAYER', 'web')
+    # ⚠️ ОТКЛЮЧАЕТ SSL VERIFY. Только для VPN/корп.сетей. Не на проде.
+    QR_SSL_VERIFY: bool = os.getenv('QR_SSL_VERIFY', 'true').lower() not in ('false', '0', 'no', 'off')
 
     # Собираем полный URL если baseUrl задан частично
     @property

@@ -1,18 +1,19 @@
 """
 Async HTTP-клиент для QuickResto Back Office API v2.92.
 
-- Авторизация через /api/authByUserPasswordLogin
-- Пагинация (limit + offset)
+- Basic Auth на каждом запросе (Authorization: Basic base64(user:pass))
+- Базовый URL из config.qr_api_url
 - Retry с exponential backoff (tenacity)
 - Rate limiting (asyncio.semaphore)
-- Повторная авторизация при истечении токена
+- SSL verify: QR_SSL_VERIFY=false для VPN
 """
 
 import asyncio
+import base64
 import json
 import logging
 from typing import Any, Optional
-from urllib.parse import urlencode
+from urllib.parse import urlencode, parse_qs
 
 import aiohttp
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
@@ -20,10 +21,6 @@ from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_ex
 from config import config
 
 logger = logging.getLogger(__name__)
-
-
-class QRAuthenticationError(Exception):
-    pass
 
 
 class QRApiError(Exception):
@@ -34,7 +31,16 @@ class QRApiError(Exception):
 
 
 class QuickRestoClient:
-    """Async клиент для QuickResto API."""
+    """Async клиент для QuickResto API.
+
+    Конфигурация берётся из config (src/config.py):
+      - QR_BASE_URL       https://vt786.quickresto.ru/platform/online
+      - QR_USERNAME       vt786
+      - QR_PASSWORD       ***
+      - QR_SSL_VERIFY     false при VPN
+
+    Все запросы идут с заголовком Authorization: Basic base64(user:pass)
+    """
 
     def __init__(
         self,
@@ -51,23 +57,30 @@ class QuickRestoClient:
         self.timeout = aiohttp.ClientTimeout(total=(timeout or config.HTTP_TIMEOUT))
         self.max_retries = max_retries or config.MAX_RETRIES
 
-        # Rate limiting
+        # Двухуровневая защита: sem ограничивает одновременные запросы,
+        # _maybe_wait делает rate limiting по RPS
         self._semaphore = asyncio.Semaphore(
             max(1, (rpm or config.RATE_LIMIT_RPM) // 60)  # requests per second
         )
         self._last_request_time: float = 0.0
         self._min_interval: float = 60.0 / max(1, (rpm or config.RATE_LIMIT_RPM))
 
-        # Token state
-        self._token: Optional[str] = None
-        self._auth_payload: Optional[str] = None
+        # SSL verify flag (может быть False при VPN/корп.инспекции)
+        self._ssl = config.QR_SSL_VERIFY
+        if not self._ssl:
+            logger.warning("⚠️  QR_SSL_VERIFY=false — SSL certificate verification DISABLED!")
+
         self._session: Optional[aiohttp.ClientSession] = None
 
     # ── Session lifecycle ──────────────────────────────────────────
 
     async def __aenter__(self) -> 'QuickRestoClient':
-        self._session = aiohttp.ClientSession(timeout=self.timeout)
-        await self._ensure_auth()
+        ssl_ctx = False if not self._ssl else None
+        conn = aiohttp.TCPConnector(ssl=ssl_ctx)
+        self._session = aiohttp.ClientSession(
+            timeout=self.timeout,
+            connector=conn,
+        )
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
@@ -75,44 +88,14 @@ class QuickRestoClient:
             await self._session.close()
             self._session = None
 
-    # ── Authentication ─────────────────────────────────────────────
+    # ── Auth helpers ───────────────────────────────────────────────
 
-    def _build_auth_payload(self) -> str:
-        """Конструирует hex-encoded username:password для X-Authorization."""
+    def _basic_auth_header(self) -> str:
+        """Authorization: Basic base64(username:password)"""
         creds = f"{self.username}:{self.password}"
-        return creds.encode('utf-8').hex()
+        return f"Basic {base64.b64encode(creds.encode('utf-8')).decode('utf-8')}"
 
-    async def _authenticate(self) -> str:
-        """Получает токен через /api/authByUserPasswordLogin."""
-        auth_url = f"{self.base_url}/api/authByUserPasswordLogin"
-        payload = self._build_auth_payload()
-        headers = {
-            "Content-Type": "application/json",
-            "X-Authorization": payload,
-        }
-
-        logger.info("QR auth: requesting token for %s", self.username)
-        async with self._semaphore:
-            async with self._session.post(auth_url, headers=headers) as resp:
-                body = await resp.text()
-                if resp.status != 200:
-                    logger.error("QR auth failed: HTTP %s — %s", resp.status, body[:500])
-                    raise QRAuthenticationError(
-                        f"Auth failed: HTTP {resp.status} — {body[:200]}"
-                    )
-                data = json.loads(body)
-                token = data.get("token")
-                if not token:
-                    raise QRAuthenticationError(f"No token in auth response: {body[:200]}")
-                logger.info("QR auth: token acquired (len=%s)", len(token))
-                return token
-
-    async def _ensure_auth(self):
-        """Проверяет наличие токена; если нет — получает."""
-        if not self._token:
-            self._token = await self._authenticate()
-
-    # ── Request helpers ────────────────────────────────────────────
+    # ── Rate limiting ─────────────────────────────────────────────
 
     async def _maybe_wait(self):
         """Rate limiter: не отправляет запросы чаще чем раз в N секунд."""
@@ -125,6 +108,8 @@ class QuickRestoClient:
             await asyncio.sleep(wait_for)
         self._last_request_time = asyncio.get_event_loop().time()
 
+    # ── Base request ──────────────────────────────────────────────
+
     @retry(
         retry=retry_if_exception_type((aiohttp.ClientError, asyncio.TimeoutError)),
         stop=stop_after_attempt(5),
@@ -132,25 +117,32 @@ class QuickRestoClient:
         reraise=True,
     )
     async def _request(self, method: str, endpoint: str, **kwargs) -> Any:
-        """Base HTTP-запрос с retry + auth + rate limiting."""
-        await self._ensure_auth()
+        """Base HTTP-запрос с retry + Basic Auth + rate limiting."""
+        if not self._session:
+            raise RuntimeError("Client not entered — use 'async with QuickRestoClient() as client:'")
+
         await self._maybe_wait()
 
-        url = f"{self.base_url}{endpoint}"
+        url = f"{self.base_url}/{endpoint.lstrip('/')}"
         headers = kwargs.pop('headers', {})
-        headers.setdefault("X-Authorization", self._token)
+        headers.setdefault("Authorization", self._basic_auth_header())
         headers.setdefault("Content-Type", "application/json")
+
+        if config.DEBUG:
+            logger.debug("REQUEST %s %s", method, url)
 
         async with self._semaphore:
             async with self._session.request(method, url, headers=headers, **kwargs) as resp:
                 body = await resp.text()
+                if config.DEBUG:
+                    logger.debug("RESPONSE %s — %d bytes", resp.status, len(body))
+
                 if resp.status == 401:
-                    # Токен мог истечь — сбрасываем и retry
-                    logger.warning("QR: token expired (401), re-authenticating…")
-                    self._token = None
-                    raise aiohttp.ClientResponseError(
-                        resp.request_info, resp.history,
-                        status=401, message="Token expired",
+                    logger.error("QR: Authentication failed (401). Check QR_USERNAME and QR_PASSWORD.")
+                    raise QRApiError(
+                        f"Authentication failed (401) on {endpoint}.",
+                        status=resp.status,
+                        response_body=body[:500],
                     )
                 if resp.status >= 400:
                     logger.error("QR API error: HTTP %s — %s", resp.status, body[:500])
@@ -169,76 +161,206 @@ class QuickRestoClient:
     async def post(self, endpoint: str, **kwargs) -> Any:
         return await self._request("POST", endpoint, **kwargs)
 
-    # ── High-level API methods ─────────────────────────────────────
+    # ── Entity helpers — используют именно endpoints из OpenAPI ─────
 
     async def list_entities(
         self,
         module_name: str,
+        class_name: str,
         limit: int = None,
         offset: int = 0,
         filters: Optional[list] = None,
         **extra_params
     ) -> list:
         """
-        GET /api/list?moduleName={module_name}
-        С автоматической пагинацией.
+        Получает список объектов через /api/list.
 
-        Возвращает список словарей (entities).
+        Пример module/class:
+          warehouse.nomenclature.dish / ru.edgex.quickresto.modules.warehouse.nomenclature.dish.Dish
+          front.orders / ru.edgex.quickresto.modules.front.orders.OrderInfo
         """
-        page_size = limit or config.PAGE_SIZE
-        all_items: list = []
-        current_offset = offset
-        total_cycles = 0
+        params = {
+            "moduleName": module_name,
+            "className": class_name,
+            "offset": str(offset),
+        }
+        if limit is not None:
+            params["limit"] = str(limit)
+        if filters:
+            params["filter"] = json.dumps(filters)
+        params.update(extra_params)
 
-        while True:
-            params = {
-                "moduleName": module_name,
-                "limit": page_size,
-                "offset": current_offset,
-            }
-            if filters:
-                # QR API принимает фильтры как JSON-массив строкой (?)
-                # Пока кодируем простым перебором; при необходимости — сериализация
-                for idx, filt in enumerate(filters):
-                    params[f"filter[{idx}]"] = json.dumps(filt)
-            params.update(extra_params)
+        endpoint = f"/api/list?{urlencode(params)}"
+        return await self.get(endpoint)
 
-            query = urlencode(params, doseq=True)
-            endpoint = f"/api/list?{query}"
+    async def read_entity(self, module_name: str, class_name: str, entity_id: int) -> dict:
+        """Получает один объект через /api/read с параметрами id и className"""
+        params = {
+            "moduleName": module_name,
+            "className": class_name,
+            "id": str(entity_id),
+        }
+        endpoint = f"/api/read?{urlencode(params)}"
+        return await self.get(endpoint)
 
-            if config.DEBUG:
-                logger.debug("QR list: %s (offset=%s, limit=%s)", module_name, current_offset, page_size)
+    # ── High-level: именно нужные сущности ─────────────────────────
 
-            data = await self.get(endpoint)
+    async def list_dishes(self, limit: int = None, offset: int = 0) -> list:
+        """Блюда (Dish)"""
+        return await self.list_entities(
+            "warehouse.nomenclature.dish",
+            "ru.edgex.quickresto.modules.warehouse.nomenclature.dish.Dish",
+            limit=limit, offset=offset,
+        )
 
-            # Ответ может быть dict с полем 'result' или list напрямую
-            items = data if isinstance(data, list) else (data.get("result") or data.get("rows", []))
-            if not items:
-                break
+    async def list_ingredients(self, limit: int = None, offset: int = 0) -> list:
+        """Ингредиенты (SingleProduct)"""
+        return await self.list_entities(
+            "warehouse.nomenclature.singleproduct",
+            "ru.edgex.quickresto.modules.warehouse.nomenclature.singleproduct.SingleProduct",
+            limit=limit, offset=offset,
+        )
 
-            all_items.extend(items)
-            current_offset += len(items)
-            total_cycles += 1
+    async def list_semiproducts(self, limit: int = None, offset: int = 0) -> list:
+        """Полуфабрикаты (SemiProduct)"""
+        return await self.list_entities(
+            "warehouse.nomenclature.semiproduct",
+            "ru.edgex.quickresto.modules.warehouse.nomenclature.semiproduct.SemiProduct",
+            limit=limit, offset=offset,
+        )
 
-            # Защита от бесконечного цикла
-            if len(items) < page_size:
-                break
-            if total_cycles > 1000:
-                logger.warning("QR list: breaking after 1000 pages for %s", module_name)
-                break
+    async def list_stores(self, limit: int = None, offset: int = 0) -> list:
+        """Склады (Store)"""
+        return await self.list_entities(
+            "warehouse.store",
+            "ru.edgex.quickresto.modules.warehouse.store.Store",
+            limit=limit, offset=offset,
+        )
 
-        logger.info("QR list: %s — fetched %s items", module_name, len(all_items))
-        return all_items
+    async def list_providers(self, limit: int = None, offset: int = 0) -> list:
+        """Поставщики (Organization)"""
+        return await self.list_entities(
+            "warehouse.providers",
+            "ru.edgex.quickresto.modules.warehouse.providers.Organization",
+            limit=limit, offset=offset,
+        )
 
-    async def get_entity(self, module_name: str, entity_id: str) -> dict:
-        """
-        GET /api/find?moduleName={module_name}
-        Получение одной сущности по ID.
-        """
-        params = {"moduleName": module_name}
-        query = urlencode(params)
-        endpoint = f"/api/find?{query}"
-        payload = json.dumps({"id": entity_id})
+    async def list_concrete_providers(self, limit: int = None, offset: int = 0) -> list:
+        """Конкретные поставщики (ConcreteProvider)"""
+        return await self.list_entities(
+            "warehouse.providers.concrete",
+            "ru.edgex.quickresto.modules.warehouse.providers.concrete.ConcreteProvider",
+            limit=limit, offset=offset,
+        )
 
-        data = await self.post(endpoint, data=payload)
-        return data if isinstance(data, dict) else (data.get("result") or {})
+    async def list_incoming_invoices(self, limit: int = None, offset: int = 0) -> list:
+        """Приходные накладные (IncomingInvoice)"""
+        return await self.list_entities(
+            "warehouse.documents.incoming",
+            "ru.edgex.quickresto.modules.warehouse.documents.incoming.IncomingInvoice",
+            limit=limit, offset=offset,
+        )
+
+    async def list_discard_invoices(self, limit: int = None, offset: int = 0) -> list:
+        """Акты списания (DiscardInvoice)"""
+        return await self.list_entities(
+            "warehouse.documents.discard",
+            "ru.edgex.quickresto.modules.warehouse.documents.discard.DiscardInvoice",
+            limit=limit, offset=offset,
+        )
+
+    async def list_cooking_invoices(self, limit: int = None, offset: int = 0) -> list:
+        """Акты приготовления (CookingInvoice)"""
+        return await self.list_entities(
+            "warehouse.documents.cooking",
+            "ru.edgex.quickresto.modules.warehouse.documents.cooking.CookingInvoice",
+            limit=limit, offset=offset,
+        )
+
+    async def list_inventory(self, limit: int = None, offset: int = 0) -> list:
+        """Инвентаризация (InventoryDocument2)"""
+        return await self.list_entities(
+            "warehouse.inventory.document.v2",
+            "ru.edgex.quickresto.modules.warehouse.inventory.document.InventoryDocument2",
+            limit=limit, offset=offset,
+        )
+
+    async def list_orders(self, limit: int = None, offset: int = 0) -> list:
+        """Чеки (OrderInfo)"""
+        return await self.list_entities(
+            "front.orders",
+            "ru.edgex.quickresto.modules.front.orders.OrderInfo",
+            limit=limit, offset=offset,
+        )
+
+    async def list_cancellations(self, limit: int = None, offset: int = 0) -> list:
+        """Отмены (Cancellation)"""
+        return await self.list_entities(
+            "front.cancellations",
+            "ru.edgex.quickresto.modules.front.cancellations.Cancellation",
+            limit=limit, offset=offset,
+        )
+
+    async def list_employees(self, limit: int = None, offset: int = 0) -> list:
+        """Сотрудники (Employee)"""
+        return await self.list_entities(
+            "personnel.employee",
+            "ru.edgex.quickresto.modules.personnel.employee.Employee",
+            limit=limit, offset=offset,
+        )
+
+    async def list_company_info(self) -> list:
+        """Организации (CompanyInfo)"""
+        return await self.list_entities(
+            "core.company",
+            "ru.edgex.quickresto.modules.core.company.CompanyInfo",
+            limit=1, offset=0,
+        )
+
+    async def list_businesses(self, limit: int = None, offset: int = 0) -> list:
+        """Бизнесы (Business)"""
+        return await self.list_entities(
+            "core.company.businesses",
+            "ru.edgex.quickresto.modules.core.company.businesses.Business",
+            limit=limit, offset=offset,
+        )
+
+    async def list_measure_units(self, limit: int = None, offset: int = 0) -> list:
+        """Единицы измерения (MeasureUnit)"""
+        return await self.list_entities(
+            "core.dictionaries.measureunits",
+            "ru.edgex.quickresto.modules.core.dictionaries.measureunits.MeasureUnit",
+            limit=limit, offset=offset,
+        )
+
+    async def list_dish_categories(self, limit: int = None, offset: int = 0) -> list:
+        """Категории блюд (DishCategory)"""
+        return await self.list_entities(
+            "warehouse.nomenclature.dish",
+            "ru.edgex.quickresto.modules.warehouse.nomenclature.dish.DishCategory",
+            limit=limit, offset=offset,
+        )
+
+    async def list_outgoing_invoices(self, limit: int = None, offset: int = 0) -> list:
+        """Расходные накладные (OutgoingInvoice)"""
+        return await self.list_entities(
+            "warehouse.documents.outgoing",
+            "ru.edgex.quickresto.modules.warehouse.documents.outgoing.OutgoingInvoice",
+            limit=limit, offset=offset,
+        )
+
+    async def list_decomposition_invoices(self, limit: int = None, offset: int = 0) -> list:
+        """Акты разбора (DecompositionInvoice)"""
+        return await self.list_entities(
+            "warehouse.documents.decomposition",
+            "ru.edgex.quickresto.modules.warehouse.documents.decomposition.DecompositionInvoice",
+            limit=limit, offset=offset,
+        )
+
+    async def list_processing_invoices(self, limit: int = None, offset: int = 0) -> list:
+        """Акты переработки (ProcessingInvoice)"""
+        return await self.list_entities(
+            "warehouse.documents.processing",
+            "ru.edgex.quickresto.modules.warehouse.documents.processing.ProcessingInvoice",
+            limit=limit, offset=offset,
+        )
