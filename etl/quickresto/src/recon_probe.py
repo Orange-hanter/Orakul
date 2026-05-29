@@ -46,6 +46,11 @@ RECON_ENTITIES: dict[str, tuple[str, str]] = {
     "order_info":        ("front.orders", "ru.edgex.quickresto.modules.front.orders.OrderInfo"),
     "cancellations":     ("front.cancellations", "ru.edgex.quickresto.modules.front.cancellations.Cancellation"),
     "employees":         ("personnel.employee", "ru.edgex.quickresto.modules.personnel.employee.Employee"),
+    "concrete_provider": ("warehouse.providers.concrete", "ru.edgex.quickresto.modules.warehouse.providers.concrete.ConcreteProvider"),
+    "outgoing_invoice":  ("warehouse.documents.outgoing", "ru.edgex.quickresto.modules.warehouse.documents.outgoing.OutgoingInvoice"),
+    "decomposition_invoice": ("warehouse.documents.decomposition", "ru.edgex.quickresto.modules.warehouse.documents.decomposition.DecompositionInvoice"),
+    "processing_invoice": ("warehouse.documents.processing", "ru.edgex.quickresto.modules.warehouse.documents.processing.ProcessingInvoice"),
+    "shift":             ("front.zreport", "ru.edgex.quickresto.modules.front.zreport.Shift"),
 }
 
 # Сколько записей выбираем
