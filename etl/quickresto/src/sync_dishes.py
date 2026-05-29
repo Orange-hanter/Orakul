@@ -1,117 +1,60 @@
 """
-Sync: Dish + CookingInvoice (QuickResto) → staging_dishes + staging_recipes (Orakul).
+Sync: Dish (QuickResto) → raw_imports + staging_dishes.
 
-Modules:
-  - warehouse.nomenclature.dish
-  - warehouse.documents.cooking
+Module: warehouse.nomenclature.dish
 
-Важно: рецептуры хранятся в CookingInvoice, НЕ в Dish!
+NOTE: Рецептуры (CookingInvoice) отключены — нужен recon дамп.
+      Раскомментировать блок B когда будет data/recon/cooking_invoice.json.
 """
 
 import logging
-from typing import List
-
 from client import QuickRestoClient
-from db import DbConnection
-from transform import map_dish, map_recipes_from_cooking_invoice
+from db import OrakulDB
+from transform import transform_dish
 
 logger = logging.getLogger(__name__)
 
 
-async def sync_dishes(client: QuickRestoClient, db: DbConnection, venue_id: str = '', etl_run_id: str = '') -> int:
+async def sync_dishes(client: QuickRestoClient, db: OrakulDB, venue_id: str = '', etl_run_id: str = '') -> int:
     """
-    Выгружает Dish и CookingInvoice.
-    Dish → staging_dishes; CookingInvoice → staging_recipes.
-    
-    Returns: общее количество staging-записей (dishes + recipes).
+    Выгружает Dish из QR (инкрементально) и пишет в raw_imports + staging_dishes.
+    Returns: количество staging-записей.
     """
-    total = 0
+    module = 'warehouse.nomenclature.dish'
+    watermark = db.get_watermark('dish')
+    logger.info("[sync_dishes] Начало синхронизации: %s (since_version=%s)", module, watermark)
 
-    # ── A. Синхронизация Dish ──────────────────────────────────────
-    dish_module = 'warehouse.nomenclature.dish'
-    logger.info("[sync_dishes] Начало синхронизации блюд: %s", dish_module)
-    dishes = await client.list_entities(module_name=dish_module)
+    dishes = await client.list_entities(module_name=module, since_version=watermark)
+    if not dishes:
+        logger.info("[sync_dishes] Нет новых записей для %s", module)
+        return 0
 
-    if dishes:
-        await db.insert_raw('dish', dishes, etl_run_id, venue_id)
-        mapped_dishes = [map_dish(d, venue_id) for d in dishes]
+    # 1. Raw dump
+    db.insert_raw('dish', dishes, etl_run_id, venue_id)
+    logger.info("[sync_dishes] raw: %s записей", len(dishes))
 
-        db_backend = db._backend
-        if db_backend == 'sqlite':
-            sql = """
-                INSERT OR REPLACE INTO staging_dishes
-                (source_id, name, code, unit, category, qr_data, venue_id, imported_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
-            """
-        else:
-            sql = """
-                INSERT INTO staging_dishes
-                (source_id, name, code, unit, category, qr_data, venue_id, imported_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
-                ON CONFLICT (source_id, venue_id) DO UPDATE SET
-                  name=EXCLUDED.name,
-                  code=EXCLUDED.code,
-                  unit=EXCLUDED.unit,
-                  category=EXCLUDED.category,
-                  qr_data=EXCLUDED.qr_data,
-                  imported_at=NOW()
-            """
+    # 2. Обновляем watermark
+    max_version = max((int(d.get('version', 0)) for d in dishes), default=watermark)
+    db.set_watermark('dish', max_version)
+    logger.info("[sync_dishes] watermark обновлён: %s → %s", watermark, max_version)
 
-        import json as _json
-        dish_records = [
-            (m['source_id'], m['name'], m['code'], m['unit'], m['category'],
-             _json.dumps(m['qr_data'], ensure_ascii=False) if db_backend == 'sqlite' else m['qr_data'],
-             m['venue_id'])
-            for m in mapped_dishes
-        ]
-        await db.insert_many(sql, dish_records)
-        total += len(dish_records)
-        logger.info("[sync_dishes] staging dishes: %s", len(dish_records))
-    else:
-        logger.warning("[sync_dishes] Dish: пустой ответ от QR")
+    # 3. Transform → staging
+    staged = []
+    for d in dishes:
+        t = transform_dish(d, venue_id)
+        if not t:
+            continue
+        staged.append({
+            'run_id': etl_run_id,
+            'venue_id': venue_id,
+            'source_id': str(d.get('id', '')),
+            'name': t['name'],
+            'code': d.get('code', ''),
+            'unit': 'порц',
+            'category': t.get('category', ''),
+        })
 
-    # ── B. Синхронизация CookingInvoice → recipes ───────────────────
-    cook_module = 'warehouse.documents.cooking'
-    logger.info("[sync_dishes] Синхронизация рецептур: %s", cook_module)
-    cooking_invoices = await client.list_entities(module_name=cook_module)
-
-    if cooking_invoices:
-        await db.insert_raw('cooking_invoice', cooking_invoices, etl_run_id, venue_id)
-
-        all_recipes: List[dict] = []
-        for inv in cooking_invoices:
-            recipes = map_recipes_from_cooking_invoice(inv, venue_id)
-            all_recipes.extend(recipes)
-
-        if all_recipes:
-            db_backend = db._backend
-            if db_backend == 'sqlite':
-                sql = """
-                    INSERT OR REPLACE INTO staging_recipes
-                    (dish_source_id, ingredient_source_id, quantity, unit, venue_id, imported_at)
-                    VALUES (?, ?, ?, ?, ?, datetime('now'))
-                """
-            else:
-                sql = """
-                    INSERT INTO staging_recipes
-                    (dish_source_id, ingredient_source_id, quantity, unit, venue_id, imported_at)
-                    VALUES ($1, $2, $3, $4, $5, NOW())
-                    ON CONFLICT (dish_source_id, ingredient_source_id, venue_id) DO UPDATE SET
-                      quantity=EXCLUDED.quantity,
-                      unit=EXCLUDED.unit,
-                      imported_at=NOW()
-                """
-
-            recipe_records = [
-                (r['dish_source_id'], r['ingredient_source_id'], r['quantity'],
-                 r['unit'], r['venue_id'])
-                for r in all_recipes
-            ]
-            await db.insert_many(sql, recipe_records)
-            total += len(recipe_records)
-            logger.info("[sync_dishes] staging recipes: %s", len(recipe_records))
-    else:
-        logger.warning("[sync_dishes] CookingInvoice: пустой ответ от QR")
-
-    logger.info("[sync_dishes] Итого staging записей: %s", total)
-    return total
+    # 4. Upsert staging
+    db.upsert_staging('dishes', staged)
+    logger.info("[sync_dishes] staging: %s записей", len(staged))
+    return len(staged)

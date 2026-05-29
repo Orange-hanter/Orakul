@@ -7,6 +7,11 @@
 Связанные документы: [BRD §8](../02-business/01-business-requirements-document.md), [OKRs 2026](../02-business/03-okrs-2026.md), [RACI](02-raci-matrix.md), [Risk Register](../05-governance/01-risk-register.md)
 ---
 
+
+<!-- KIEPPER-DEPRECATED-NOTE -->
+> **Примечание о Kiepper (обновлено 2026-05-29):** Интеграция с системой Kiepper **не используется** и перенесена в архив. Orakul работает исключительно с **QuickResto** API. Документы Kiepper сохранены для истории; актуальная интеграция — [QuickResto Integration Spec](../08-technical/09-quickresto-integration-spec.md).
+
+
 # Implementation Roadmap
 
 ## 1. Принципы roadmap

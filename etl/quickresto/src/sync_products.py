@@ -1,5 +1,5 @@
 """
-Sync: SingleProduct (QuickResto) → staging_products (Orakul).
+Sync: SingleProduct (QuickResto) → raw_imports + staging_products.
 
 Module: warehouse.nomenclature.singleproduct
 """
@@ -8,70 +8,57 @@ import logging
 from typing import List
 
 from client import QuickRestoClient
-from db import DbConnection
-from transform import map_single_product
+from db import OrakulDB
+from transform import transform_product
 
 logger = logging.getLogger(__name__)
 
 
-async def sync_products(client: QuickRestoClient, db: DbConnection, venue_id: str = '', etl_run_id: str = '') -> int:
+async def sync_products(client: QuickRestoClient, db: OrakulDB, venue_id: str = '', etl_run_id: str = '') -> int:
     """
-    Выгружает все SingleProduct из QR и пишет в staging_products + raw_imports.
-    
-    Returns: количество обработанных записей.
+    Выгружает SingleProduct из QR (инкрементально) и пишет в raw_imports + staging_products.
+    Returns: количество staging-записей.
     """
     module = 'warehouse.nomenclature.singleproduct'
-    logger.info("[sync_products] Начало синхронизации: %s", module)
+    watermark = db.get_watermark('product')
+    logger.info("[sync_products] Начало синхронизации: %s (since_version=%s)", module, watermark)
 
-    # 1. Выгрузка из QR
-    items = await client.list_entities(module_name=module)
+    items = await client.list_entities(
+        module_name=module,
+        class_name='ru.edgex.quickresto.modules.warehouse.nomenclature.singleproduct.SingleProduct',
+        since_version=watermark,
+    )
     if not items:
-        logger.warning("[sync_products] QR вернул пустой список для %s", module)
+        logger.info("[sync_products] Нет новых записей для %s", module)
         return 0
 
-    # 2. Сырой дамп в raw_imports
-    inserted_raw = await db.insert_raw('product', items, etl_run_id, venue_id)
-    logger.info("[sync_products] raw: %s записей", inserted_raw)
+    # 1. Raw dump
+    db.insert_raw('product', items, etl_run_id, venue_id)
+    logger.info("[sync_products] raw: %s записей", len(items))
 
-    # 3. Transform + staging
-    mapped = [map_single_product(item, venue_id) for item in items]
+    # 2. Обновляем watermark
+    max_version = max((int(i.get('version', 0)) for i in items), default=watermark)
+    db.set_watermark('product', max_version)
+    logger.info("[sync_products] watermark обновлён: %s → %s (raw records: %d)", watermark, max_version, len(items))
 
-    # Upsert (INSERT OR REPLACE / ON CONFLICT UPDATE)
-    db_backend = db._backend
-    if db_backend == 'sqlite':
-        sql = """
-            INSERT OR REPLACE INTO staging_products
-            (source_id, name, code, unit, category, qr_data, venue_id, imported_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
-        """
-    else:
-        sql = """
-            INSERT INTO staging_products
-            (source_id, name, code, unit, category, qr_data, venue_id, imported_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
-            ON CONFLICT (source_id, venue_id) DO UPDATE SET
-              name=EXCLUDED.name,
-              code=EXCLUDED.code,
-              unit=EXCLUDED.unit,
-              category=EXCLUDED.category,
-              qr_data=EXCLUDED.qr_data,
-              imported_at=NOW()
-        """
+    # 3. Transform → staging format
+    staged = []
+    for item in items:
+        t = transform_product(item, venue_id)
+        if not t:
+            continue
+        measure = item.get('measureUnit', {}) or {}
+        staged.append({
+            'run_id': etl_run_id,
+            'venue_id': venue_id,
+            'source_id': str(item.get('id', '')),
+            'name': t['name'],
+            'unit': t.get('unit', 'кг'),
+            'category': t.get('category', ''),
+            'measure_unit_id': str(measure.get('id', '')),
+        })
 
-    records = [
-        (m['source_id'], m['name'], m['code'], m['unit'], m['category'],
-         m['qr_data'], m['venue_id'])
-        for m in mapped
-    ]
-    # SQLite требует строки для qr_data; postgres — JSONB
-    if db_backend == 'sqlite':
-        import json as _json
-        records = [
-            (r[0], r[1], r[2], r[3], r[4],
-             _json.dumps(r[5], ensure_ascii=False), r[6])
-            for r in records
-        ]
-
-    await db.insert_many(sql, records)
-    logger.info("[sync_products] staging: %s записей", len(records))
-    return len(records)
+    # 4. Upsert staging
+    db.upsert_staging('products', staged)
+    logger.info("[sync_products] staging: %s записей", len(staged))
+    return len(staged)

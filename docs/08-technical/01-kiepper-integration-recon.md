@@ -2,9 +2,16 @@
 Документ: Kiepper Integration Recon
 Версия: 1.0
 Дата: 2026-05-09
-Статус: В работе (требует заполнения по результатам разведки)
+Статус: DEPRECATED — интеграция с Kiepper не используется; QuickResto — единственный источник данных.
 Владелец: Tech Lead + Data Lead
 Связанные документы: [MVP Architecture](00-mvp-architecture.md), [Data Model & Pipeline](02-data-model-and-pipeline.md), [Data Audit Checklist](../04-implementation/04-data-audit-checklist-kiepper.md), [Risk Register R-05](../05-governance/01-risk-register.md)
+---
+
+# ⚠️ DEPRECATED
+
+> **Этот документ сохранён в архиве.** Интеграция с Kiepper больше не используется. Orakul работает исключительно с QuickResto API.
+> Для актуальной интеграции см. [QuickResto Integration Spec](09-quickresto-integration-spec.md).
+
 ---
 
 # Kiepper Integration Recon

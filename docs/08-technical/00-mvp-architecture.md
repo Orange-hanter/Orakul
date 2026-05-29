@@ -7,6 +7,11 @@
 Связанные документы: [PRD](../03-product/01-product-requirements-document.md), [Kiepper Integration Recon](01-kiepper-integration-recon.md), [Data Model & Pipeline](02-data-model-and-pipeline.md), [ML & Forecasting Spec](03-ml-and-forecasting-spec.md), [Telegram Notification Spec](04-telegram-notification-spec.md)
 ---
 
+
+<!-- KIEPPER-DEPRECATED-NOTE -->
+> **Примечание о Kiepper (обновлено 2026-05-29):** Интеграция с системой Kiepper **не используется** и перенесена в архив. Orakul работает исключительно с **QuickResto** API. Документы Kiepper сохранены для истории; актуальная интеграция — [QuickResto Integration Spec](../08-technical/09-quickresto-integration-spec.md).
+
+
 # MVP Architecture
 
 ## 0. Принципы архитектуры MVP

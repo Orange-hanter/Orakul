@@ -7,6 +7,11 @@
 Связанные документы: [BRD](../02-business/01-business-requirements-document.md), [Бизнес-кейс и ROI](../06-financial/01-business-case-and-roi.md), [Go-to-Market](03-go-to-market.md)
 ---
 
+
+<!-- KIEPPER-DEPRECATED-NOTE -->
+> **Примечание о Kiepper (обновлено 2026-05-29):** Интеграция с системой Kiepper **не используется** и перенесена в архив. Orakul работает исключительно с **QuickResto** API. Документы Kiepper сохранены для истории; актуальная интеграция — [QuickResto Integration Spec](../08-technical/09-quickresto-integration-spec.md).
+
+
 # Видение и стратегия продукта Orakul
 
 ## 1. Vision Statement

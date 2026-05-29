@@ -7,6 +7,11 @@
 Связанные документы: [MVP Architecture](00-mvp-architecture.md), [Kiepper Integration Recon](01-kiepper-integration-recon.md), [ML & Forecasting Spec](03-ml-and-forecasting-spec.md), [Data Audit Checklist](../04-implementation/04-data-audit-checklist-kiepper.md), [Data Governance](../05-governance/03-data-governance.md)
 ---
 
+
+<!-- KIEPPER-DEPRECATED-NOTE -->
+> **Примечание о Kiepper (обновлено 2026-05-29):** Интеграция с системой Kiepper **не используется** и перенесена в архив. Orakul работает исключительно с **QuickResto** API. Документы Kiepper сохранены для истории; актуальная интеграция — [QuickResto Integration Spec](../08-technical/09-quickresto-integration-spec.md).
+
+
 # Data Model & Pipeline Spec
 
 ## 0. Принципы

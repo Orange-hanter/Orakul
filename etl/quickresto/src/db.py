@@ -1,163 +1,87 @@
 """
-Lightweight SQLite wrapper for Orakul ETL.
+DB layer — factory + legacy OrakulDB wrapper.
 
-- Создаёт таблицы под модель Orakul (venue, product, stock_entry, supplier,
-  supplier_item, order, dish, revenue_entry, ...)
-- Upsert = INSERT OR REPLACE
-- Get by id / type
-- List all by type
+Usage:
+    from db import create_db, OrakulDB
+
+    # New dual-backend
+    db = create_db('sqlite')          # SqliteBackend (default)
+    db = create_db('postgres')       # PostgresBackend (requires ETL_POSTGRES_DSN)
+
+    # Legacy compat
+    db_legacy = OrakulDB()           # wraps SqliteBackend internally
 """
 
 from __future__ import annotations
 
 import json
-import logging
-import sqlite3
-from datetime import datetime
-from pathlib import Path
-from typing import Any
 
-from config import config
+from db_base import DbConnection
 
-logger = logging.getLogger(__name__)
 
-# ── Schema ──────────────────────────────────────────────────────
+def create_db(backend: str = 'sqlite', **kwargs) -> DbConnection:
+    """Factory: create a DbConnection backend."""
+    if backend == 'sqlite':
+        from db_sqlite import SqliteBackend
+        return SqliteBackend(**kwargs)
+    if backend == 'postgres':
+        from db_postgres import PostgresBackend
+        return PostgresBackend(**kwargs)
+    raise ValueError(f"Unknown DB backend: {backend}. Available: ['sqlite', 'postgres']")
 
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS orakul_records (
-    id          TEXT PRIMARY KEY,
-    type        TEXT NOT NULL,
-    venue_id    TEXT,
-    data        TEXT NOT NULL,  -- JSON
-    created_at  TEXT DEFAULT CURRENT_TIMESTAMP,
-    updated_at  TEXT DEFAULT CURRENT_TIMESTAMP
-);
-CREATE INDEX IF NOT EXISTS idx_type ON orakul_records(type);
-CREATE INDEX IF NOT EXISTS idx_venue ON orakul_records(venue_id);
-CREATE INDEX IF NOT EXISTS idx_updated ON orakul_records(updated_at);
 
-CREATE TABLE IF NOT EXISTS etl_sync_log (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    source      TEXT NOT NULL,    -- 'quickresto'
-    entity      TEXT NOT NULL,    -- 'product', 'dish', ...
-    action      TEXT NOT NULL,    -- 'fetch', 'transform', 'upsert'
-    count       INTEGER DEFAULT 0,
-    duration_ms INTEGER,
-    error       TEXT,
-    created_at  TEXT DEFAULT CURRENT_TIMESTAMP
-);
-"""
-
-# ── DB class ────────────────────────────────────────────────────
+# ── Legacy OrakulDB (wraps SqliteBackend for compat) ─────────────
 
 class OrakulDB:
-    """SQLite DB for Orakul records."""
+    """Legacy SQLite DB — thin wrapper around SqliteBackend.
 
-    def __init__(self, path: str | Path | None = None):
-        self.path = Path(path or config.SQLITE_PATH)
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._init_db()
+    Preserves old API: upsert(), upsert_many(), get(), list_by_type(),
+    count_by_type(), log_sync(), get_sync_log().
 
-    # ── Connection ─────────────────────────────────────────────
+    Under the hood uses SqliteBackend with raw_imports + staging + core.
+    """
 
-    def _conn(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(str(self.path), check_same_thread=False)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA journal_mode=WAL")
-        return conn
+    def __init__(self, path: str | None = None):
+        from db_sqlite import SqliteBackend
+        self._backend = SqliteBackend(path)
 
-    def _init_db(self):
-        conn = self._conn()
-        conn.executescript(SCHEMA)
-        conn.commit()
-        conn.close()
+    @property
+    def path(self):
+        return self._backend._path
 
-    # ── CRUD ────────────────────────────────────────────────────
+    # ── CRUD (legacy -> via upsert_legacy) ─────────────────────────
 
     def upsert(self, record: dict) -> None:
-        """INSERT OR REPLACE одной записи."""
-        conn = self._conn()
-        conn.execute(
-            """
-            INSERT INTO orakul_records (id, type, venue_id, data, updated_at)
-            VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-                type=excluded.type,
-                venue_id=excluded.venue_id,
-                data=excluded.data,
-                updated_at=excluded.updated_at
-            """,
-            (
-                record["id"],
-                record.get("type", ""),
-                record.get("venueId", record.get("venue_id", "")),
-                json.dumps(record, ensure_ascii=False, default=str),
-                datetime.utcnow().isoformat(),
-            )
-        )
-        conn.commit()
-        conn.close()
+        """INSERT OR REPLACE одной записи (legacy table)."""
+        self._backend.upsert_legacy(record)
 
     def upsert_many(self, records: list[dict]) -> int:
-        """Batch upsert. Returns count."""
-        if not records:
-            return 0
-        conn = self._conn()
-        now = datetime.utcnow().isoformat()
-        rows = [
-            (
-                r["id"],
-                r.get("type", ""),
-                r.get("venueId", r.get("venue_id", "")),
-                json.dumps(r, ensure_ascii=False, default=str),
-                now,
-            )
-            for r in records
-        ]
-        conn.executemany(
-            """
-            INSERT INTO orakul_records (id, type, venue_id, data, updated_at)
-            VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-                type=excluded.type,
-                venue_id=excluded.venue_id,
-                data=excluded.data,
-                updated_at=excluded.updated_at
-            """,
-            rows,
-        )
-        conn.commit()
-        count = conn.total_changes
-        conn.close()
-        return count
+        """Batch upsert (legacy table). Returns count."""
+        return self._backend.upsert_many_legacy(records)
 
     def get(self, record_id: str) -> dict | None:
-        conn = self._conn()
+        conn = self._backend._get_conn()
         row = conn.execute(
             "SELECT data FROM orakul_records WHERE id = ?", (record_id,)
         ).fetchone()
-        conn.close()
-        if row:
-            return json.loads(row["data"])
-        return None
+        return ({"id": record_id, **json.loads(row["data"])} if row else None)
 
     def list_by_type(self, record_type: str, venue_id: str | None = None) -> list[dict]:
-        conn = self._conn()
+        conn = self._backend._get_conn()
         if venue_id:
             rows = conn.execute(
-                "SELECT data FROM orakul_records WHERE type = ? AND venue_id = ?",
+                "SELECT id, data FROM orakul_records WHERE type = ? AND venue_id = ?",
                 (record_type, venue_id)
             ).fetchall()
         else:
             rows = conn.execute(
-                "SELECT data FROM orakul_records WHERE type = ?",
+                "SELECT id, data FROM orakul_records WHERE type = ?",
                 (record_type,)
             ).fetchall()
-        conn.close()
-        return [json.loads(r["data"]) for r in rows]
+        return [{"id": r["id"], **json.loads(r["data"])} for r in rows]
 
     def count_by_type(self, record_type: str, venue_id: str | None = None) -> int:
-        conn = self._conn()
+        conn = self._backend._get_conn()
         if venue_id:
             row = conn.execute(
                 "SELECT COUNT(*) FROM orakul_records WHERE type = ? AND venue_id = ?",
@@ -168,10 +92,9 @@ class OrakulDB:
                 "SELECT COUNT(*) FROM orakul_records WHERE type = ?",
                 (record_type,)
             ).fetchone()
-        conn.close()
         return row[0]
 
-    # ── Sync log ────────────────────────────────────────────────
+    # ── Sync log (legacy) ───────────────────────────────────────
 
     def log_sync(
         self,
@@ -182,32 +105,48 @@ class OrakulDB:
         duration_ms: int = 0,
         error: str | None = None,
     ) -> None:
-        conn = self._conn()
-        conn.execute(
-            """
-            INSERT INTO etl_sync_log (source, entity, action, count, duration_ms, error)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (source, entity, action, count, duration_ms, error),
-        )
-        conn.commit()
-        conn.close()
+        return self._backend.log_run(entity, action, count=count,
+                                      duration_ms=duration_ms, error=error)
 
     def get_sync_log(self, limit: int = 50) -> list[dict]:
-        conn = self._conn()
+        conn = self._backend._get_conn()
         rows = conn.execute(
-            """
-            SELECT * FROM etl_sync_log
-            ORDER BY created_at DESC
-            LIMIT ?
-            """,
+            "SELECT * FROM etl_sync_log ORDER BY created_at DESC LIMIT ?",
             (limit,)
         ).fetchall()
-        conn.close()
         return [dict(r) for r in rows]
+
+    # ── New API passthrough ─────────────────────────────────────
+
+    def begin_run(self) -> str:
+        return self._backend.begin_run()
+
+    def commit_run(self, run_id: str, status: str, records: int = 0, error: str | None = None) -> None:
+        self._backend.commit_run(run_id, status, records=records, error=error)
+
+    def insert_raw(self, entity: str, records: list[dict], run_id: str, venue_id: str | None = None) -> int:
+        return self._backend.insert_raw(entity, records, run_id, venue_id)
+
+    def upsert_staging(self, table_name: str, records: list[dict]) -> int:
+        return self._backend.upsert_staging(table_name, records)
+
+    def merge_core(self, table_name: str, records: list[dict]) -> int:
+        return self._backend.merge_core(table_name, records)
+
+    def get_watermark(self, entity: str) -> int:
+        return self._backend.get_watermark(entity)
+
+    def set_watermark(self, entity: str, version: int) -> None:
+        return self._backend.set_watermark(entity, version)
+
+    def get_stats(self) -> dict:
+        return self._backend.get_stats()
+
+    def close(self) -> None:
+        self._backend.close()
 
 
 if __name__ == "__main__":
     db = OrakulDB()
-    print(f"DB: {db.path} — created/connected")
-    print(f"Tables: orakul_records, etl_sync_log")
+    print(f"DB: {db.path} — connected")
+    print(f"New run id: {db.begin_run()}")

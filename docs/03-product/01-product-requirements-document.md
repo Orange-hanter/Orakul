@@ -7,6 +7,11 @@
 Связанные документы: [BRD](../02-business/01-business-requirements-document.md), [User Stories](02-user-stories.md), [User Journey Maps](03-user-journey-maps.md), [BDD](04-bdd-acceptance-scenarios.md)
 ---
 
+
+<!-- KIEPPER-DEPRECATED-NOTE -->
+> **Примечание о Kiepper (обновлено 2026-05-29):** Интеграция с системой Kiepper **не используется** и перенесена в архив. Orakul работает исключительно с **QuickResto** API. Документы Kiepper сохранены для истории; актуальная интеграция — [QuickResto Integration Spec](../08-technical/09-quickresto-integration-spec.md).
+
+
 # Product Requirements Document (PRD)
 
 ## 1. Назначение и аудитория

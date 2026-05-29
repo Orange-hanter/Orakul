@@ -7,6 +7,11 @@
 Связанные документы: [Vision & Strategy](../01-strategy/01-vision-and-strategy.md), [KPI Framework](02-kpi-framework-and-dashboard.md), [User Stories](../03-product/02-user-stories.md), [PRD](../03-product/01-product-requirements-document.md), [Roadmap](../04-implementation/01-roadmap.md), [Risk Register](../05-governance/01-risk-register.md), [Business Case & ROI](../06-financial/01-business-case-and-roi.md)
 ---
 
+
+<!-- KIEPPER-DEPRECATED-NOTE -->
+> **Примечание о Kiepper (обновлено 2026-05-29):** Интеграция с системой Kiepper **не используется** и перенесена в архив. Orakul работает исключительно с **QuickResto** API. Документы Kiepper сохранены для истории; актуальная интеграция — [QuickResto Integration Spec](../08-technical/09-quickresto-integration-spec.md).
+
+
 # Бизнес-требования к внедрению ИИ‑помощника для предприятий общественного питания (интеграция с Kiepper)
 
 > **Назначение документа.** BRD фиксирует бизнес-уровень требований к продукту Orakul. Это контракт между бизнес-заказчиком и командой реализации. Все остальные документы (PRD, User Stories, Roadmap, KPI Framework, ROI) выводятся из BRD и обязаны на него ссылаться. Любое изменение BRD после утверждения — через [Change Request](../05-governance/04-change-request-template.md).

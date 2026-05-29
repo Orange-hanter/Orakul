@@ -35,17 +35,11 @@ if str(_src_dir) not in sys.path:
 from client import QuickRestoClient
 from config import config
 from db import OrakulDB
-from transform import (
-    transform_cancellations,
-    transform_dishes,
-    transform_discard_invoices,
-    transform_employees,
-    transform_incoming_invoices,
-    transform_inventories,
-    transform_products,
-    transform_shifts,
-    transform_suppliers,
-)
+
+# Import sync modules
+from sync_products import sync_products
+from sync_dishes import sync_dishes
+from sync_stores import sync_stores
 
 logger = logging.getLogger(__name__)
 
@@ -66,148 +60,147 @@ async def run_sync():
     db = OrakulDB()
     logger.info("SQLite: %s", db.path)
 
-    # Venue (company) — одна запись
-    venue_records = db.list_by_type("venue")
-    if venue_records:
-        venue = venue_records[0]
-        logger.info("Venue уже существует: %s (%s)", venue["name"], venue["id"][:8])
-    else:
-        venue = {
-            "type": "venue",
-            "id": "venue-qr-main",
-            "name": "Моцарелла",
-            "isDefault": True,
-        }
-        db.upsert(venue)
-        logger.info("Venue создана: %s", venue["name"])
+    run_id = db.begin_run()
+    logger.info("ETL run started: %s", run_id)
 
-    venue_id = venue["id"]
-    total_fetched = 0
-    total_transformed = 0
-    total_db = 0
+    venue_id = "venue-qr-main"
+    total_staging = 0
+    total_raw = 0
+    errors: list[str] = []
 
     start_time = time.time()
 
-    async with QuickRestoClient() as client:
-        # ── 1. Company (venue) ────────────────────────────────
-        companies = await client.list_company_info()
-        for c in companies:
-            record = {
-                "type": "venue",
-                "id": venue_id,
-                "name": c.get("name", "Моцарелла"),
-                "isDefault": True,
-            }
-            db.upsert(record)
-            total_db += 1
-        logger.info("[%s] Company: %d", "venue", len(companies))
+    try:
+        async with QuickRestoClient() as client:
+            # ── 1. Company (venue) ────────────────────────────────
+            try:
+                companies = await client.list_company_info()
+                if companies:
+                    db.insert_raw('company', companies, run_id, venue_id)
+                    logger.info("[%s] Company: %d", "company", len(companies))
+            except Exception as e:
+                logger.warning("Company fetch failed: %s", e)
+                errors.append(f"company: {e}")
 
-        # ── 2. Products (ингредиенты + полуфабр.) ───────────────
-        raw_products = await client.list_ingredients(limit=SYNC_LIMIT or None)
-        products = transform_products(raw_products, venue_id)
-        db.upsert_many(products)
-        total_fetched += len(raw_products)
-        total_transformed += len(products)
-        total_db += len(products)
-        logger.info("[%s] Products: %d raw → %d transformed", "product", len(raw_products), len(products))
+            # ── 2. Products ───────────────────────────────────────────
+            try:
+                n = await sync_products(client, db, venue_id, run_id)
+                total_staging += n
+            except Exception as e:
+                logger.error("Products sync failed: %s", e)
+                errors.append(f"products: {e}")
 
-        # ── 3. Dishes ───────────────────────────────────────────
-        raw_dishes = await client.list_dishes(limit=SYNC_LIMIT or None)
-        dishes = transform_dishes(raw_dishes, venue_id)
-        db.upsert_many(dishes)
-        total_fetched += len(raw_dishes)
-        total_transformed += len(dishes)
-        total_db += len(dishes)
-        logger.info("[%s] Dishes: %d raw → %d transformed", "dish", len(raw_dishes), len(dishes))
+            # ── 3. Dishes ─────────────────────────────────────────────
+            try:
+                n = await sync_dishes(client, db, venue_id, run_id)
+                total_staging += n
+            except Exception as e:
+                logger.error("Dishes sync failed: %s", e)
+                errors.append(f"dishes: {e}")
 
-        # ── 4. Suppliers ────────────────────────────────────────
-        raw_suppliers = await client.list_providers(limit=SYNC_LIMIT or None)
-        suppliers = transform_suppliers(raw_suppliers)
-        db.upsert_many(suppliers)
-        total_fetched += len(raw_suppliers)
-        total_transformed += len(suppliers)
-        total_db += len(suppliers)
-        logger.info("[%s] Suppliers: %d raw → %d transformed", "supplier", len(raw_suppliers), len(suppliers))
+            # ── 4. Stores ───────────────────────────────────────────
+            try:
+                n = await sync_stores(client, db, venue_id, run_id)
+                total_staging += n
+            except Exception as e:
+                logger.error("Stores sync failed: %s", e)
+                errors.append(f"stores: {e}")
 
-        # ── 5. Incoming invoices (orders + stock_entry receipt) ─
-        raw_incoming = await client.list_incoming_invoices(limit=SYNC_LIMIT or None)
-        orders, stock_receipts = transform_incoming_invoices(raw_incoming, venue_id)
-        db.upsert_many(orders)
-        db.upsert_many(stock_receipts)
-        total_fetched += len(raw_incoming)
-        total_transformed += len(orders) + len(stock_receipts)
-        total_db += len(orders) + len(stock_receipts)
-        logger.info(
-            "[%s] Incoming: %d raw → %d orders + %d stock_entries",
-            "incoming", len(raw_incoming), len(orders), len(stock_receipts)
-        )
+            # ── 5. Suppliers (providers) ────────────────────────────
+            try:
+                providers = await client.list_providers()
+                if providers:
+                    db.insert_raw('supplier', providers, run_id, venue_id)
+                    logger.info("[%s] Suppliers: %d", "supplier", len(providers))
+            except Exception as e:
+                logger.warning("Suppliers fetch failed: %s", e)
+                errors.append(f"suppliers: {e}")
 
-        # ── 6. Discard invoices (stock_entry writeoff) ─────────
-        raw_discard = await client.list_discard_invoices(limit=SYNC_LIMIT or None)
-        discards = transform_discard_invoices(raw_discard, venue_id)
-        db.upsert_many(discards)
-        total_fetched += len(raw_discard)
-        total_transformed += len(discards)
-        total_db += len(discards)
-        logger.info("[%s] Discard: %d raw → %d stock_entries", "discard", len(raw_discard), len(discards))
+            # ── 6. Incoming invoices ────────────────────────────────
+            try:
+                invoices = await client.list_incoming_invoices()
+                if invoices:
+                    db.insert_raw('incoming_invoice', invoices, run_id, venue_id)
+                    logger.info("[%s] Incoming invoices: %d", "incoming_invoice", len(invoices))
+            except Exception as e:
+                logger.warning("Incoming invoices fetch failed: %s", e)
+                errors.append(f"incoming_invoices: {e}")
 
-        # ── 7. Inventory (stock_entry inventory) ──────────────────
-        raw_inventory = await client.list_inventory(limit=SYNC_LIMIT or None)
-        inventories = transform_inventories(raw_inventory, venue_id)
-        db.upsert_many(inventories)
-        total_fetched += len(raw_inventory)
-        total_transformed += len(inventories)
-        total_db += len(inventories)
-        logger.info("[%s] Inventory: %d raw → %d stock_entries", "inventory", len(raw_inventory), len(inventories))
+            # ── 7. Discard invoices ─────────────────────────────────
+            try:
+                discards = await client.list_discard_invoices()
+                if discards:
+                    db.insert_raw('discard_invoice', discards, run_id, venue_id)
+                    logger.info("[%s] Discard invoices: %d", "discard_invoice", len(discards))
+            except Exception as e:
+                logger.warning("Discard invoices fetch failed: %s", e)
+                errors.append(f"discard_invoices: {e}")
 
-        # ── 8. Cancellations (stock_entry writeoff) ─────────────
-        raw_cancellations = await client.list_cancellations(limit=SYNC_LIMIT or None)
-        cancellations = transform_cancellations(raw_cancellations, venue_id)
-        db.upsert_many(cancellations)
-        total_fetched += len(raw_cancellations)
-        total_transformed += len(cancellations)
-        total_db += len(cancellations)
-        logger.info("[%s] Cancellations: %d raw → %d stock_entries", "cancellation", len(raw_cancellations), len(cancellations))
+            # ── 8. Inventory ────────────────────────────────────────
+            try:
+                inventories = await client.list_inventory()
+                if inventories:
+                    db.insert_raw('inventory', inventories, run_id, venue_id)
+                    logger.info("[%s] Inventory: %d", "inventory", len(inventories))
+            except Exception as e:
+                logger.warning("Inventory fetch failed: %s", e)
+                errors.append(f"inventory: {e}")
 
-        # ── 9. Shifts (revenue_entry) ───────────────────────────
-        raw_shifts = await client.list_shifts(limit=SYNC_LIMIT or None)
-        shifts = transform_shifts(raw_shifts, venue_id)
-        db.upsert_many(shifts)
-        total_fetched += len(raw_shifts)
-        total_transformed += len(shifts)
-        total_db += len(shifts)
-        revenue_total = sum(s.get("amount", 0) for s in shifts)
-        logger.info("[%s] Shifts: %d raw → %d revenue_entries (%.2f BYN)",
-                     "revenue", len(raw_shifts), len(shifts), revenue_total)
+            # ── 9. Cancellations ────────────────────────────────────
+            try:
+                cancellations = await client.list_cancellations()
+                if cancellations:
+                    db.insert_raw('cancellation', cancellations, run_id, venue_id)
+                    logger.info("[%s] Cancellations: %d", "cancellation", len(cancellations))
+            except Exception as e:
+                logger.warning("Cancellations fetch failed: %s", e)
+                errors.append(f"cancellations: {e}")
 
-        # ── 10. Employees ────────────────────────────────────────
-        raw_employees = await client.list_employees(limit=SYNC_LIMIT or None)
-        employees = transform_employees(raw_employees)
-        db.upsert_many(employees)
-        total_fetched += len(raw_employees)
-        total_transformed += len(employees)
-        total_db += len(employees)
-        logger.info("[%s] Employees: %d raw → %d", "employee", len(raw_employees), len(employees))
+            # ── 10. Shifts ──────────────────────────────────────────
+            try:
+                shifts = await client.list_shifts()
+                if shifts:
+                    db.insert_raw('shift', shifts, run_id, venue_id)
+                    logger.info("[%s] Shifts: %d", "shift", len(shifts))
+            except Exception as e:
+                logger.warning("Shifts fetch failed: %s", e)
+                errors.append(f"shifts: {e}")
+
+            # ── 11. Employees ───────────────────────────────────────
+            try:
+                employees = await client.list_employees()
+                if employees:
+                    db.insert_raw('employee', employees, run_id, venue_id)
+                    logger.info("[%s] Employees: %d", "employee", len(employees))
+            except Exception as e:
+                logger.warning("Employees fetch failed: %s", e)
+                errors.append(f"employees: {e}")
+
+    except Exception as e:
+        logger.error("Fatal sync error: %s", e)
+        db.commit_run(run_id, "failed", records=total_staging, error=str(e))
+        return 1
 
     # ── Summary ─────────────────────────────────────────────────
     duration = time.time() - start_time
+    status = "completed" if not errors else "completed_with_errors"
+    error_msg = "; ".join(errors) if errors else None
+
+    db.commit_run(run_id, status, records=total_staging, error=error_msg)
+
     logger.info("╔═══════════════════════════════════════╗")
     logger.info("║  ETL Sync завершён                    ║")
     logger.info("╠═══════════════════════════════════════╣")
+    logger.info("║  Run id:         %s", run_id)
     logger.info("║  Duration:       %.1f s", duration)
-    logger.info("║  Raw fetched:    %d", total_fetched)
-    logger.info("║  Transformed:   %d", total_transformed)
-    logger.info("║  DB records:    %d", total_db)
+    logger.info("║  Staging records: %d", total_staging)
+    logger.info("║  Errors:         %d", len(errors))
     logger.info("╚═══════════════════════════════════════╝")
 
-    # Подсчёт по типам
-    conn = db._conn()
-    for t in ("venue", "product", "dish", "supplier", "order", "stock_entry", "revenue_entry"):
-        c = db.count_by_type(t)
-        logger.info("  %-15s: %d records", t, c)
+    # DB stats
+    stats = db.get_stats()
+    logger.info("DB stats: %s", stats)
 
-    # Sync log
-    db.log_sync("quickresto", "all", "sync", count=total_db, duration_ms=int(duration * 1000))
     return 0
 
 

@@ -170,6 +170,7 @@ class QuickRestoClient:
         limit: int | None = None,
         offset: int = 0,
         filters: Optional[list] = None,
+        since_version: int | None = None,
         **extra_params
     ) -> list:
         """
@@ -188,6 +189,8 @@ class QuickRestoClient:
             params["limit"] = str(limit)
         if filters:
             params["filter"] = json.dumps(filters)
+        if since_version is not None:
+            params["since_version"] = str(since_version)
         params.update(extra_params)
 
         endpoint = f"/api/list?{urlencode(params)}"
