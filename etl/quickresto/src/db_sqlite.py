@@ -155,6 +155,30 @@ CREATE TABLE IF NOT EXISTS staging_stores (
 );
 CREATE INDEX IF NOT EXISTS ix_staging_store_run ON staging_stores(run_id);
 
+CREATE TABLE IF NOT EXISTS staging_dish_categories (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id           TEXT NOT NULL,
+    venue_id         TEXT,
+    source_id        TEXT NOT NULL,
+    name             TEXT,
+    color            TEXT,
+    imported_at      TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS ix_staging_dish_cat_run ON staging_dish_categories(run_id);
+
+CREATE TABLE IF NOT EXISTS staging_measure_units (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id           TEXT NOT NULL,
+    venue_id         TEXT,
+    source_id        TEXT NOT NULL,
+    name             TEXT,
+    code             TEXT,
+    full_name        TEXT,
+    parent_ratio     REAL DEFAULT 1.0,
+    imported_at      TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS ix_staging_mu_run ON staging_measure_units(run_id);
+
 CREATE TABLE IF NOT EXISTS staging_shifts (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
     run_id           TEXT NOT NULL,
@@ -176,6 +200,33 @@ CREATE TABLE IF NOT EXISTS staging_shifts (
 );
 CREATE INDEX IF NOT EXISTS ix_staging_shift_run ON staging_shifts(run_id);
 CREATE INDEX IF NOT EXISTS ix_staging_shift_closed ON staging_shifts(closed_at);
+
+CREATE TABLE IF NOT EXISTS staging_cancellations (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id           TEXT NOT NULL,
+    venue_id         TEXT,
+    source_id        TEXT NOT NULL,
+    reason           TEXT,
+    description      TEXT,
+    employee_id      TEXT,
+    table_order_id   TEXT,
+    created_at       TEXT,
+    imported_at      TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS ix_staging_cancel_run ON staging_cancellations(run_id);
+
+CREATE TABLE IF NOT EXISTS staging_concrete_providers (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id           TEXT NOT NULL,
+    venue_id         TEXT,
+    source_id        TEXT NOT NULL,
+    full_name        TEXT,
+    short_name       TEXT,
+    address          TEXT,
+    egais_status     TEXT,
+    imported_at      TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS ix_staging_cp_run ON staging_concrete_providers(run_id);
 
 -- ── Core ────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS core_products (
@@ -458,6 +509,24 @@ class SqliteBackend(DbConnection):
                 """,
                 records
             )
+        elif actual == 'staging_dish_categories':
+            conn.executemany(
+                """
+                INSERT INTO staging_dish_categories (run_id, venue_id, source_id, name, color)
+                VALUES (:run_id, :venue_id, :source_id, :name, :color)
+                ON CONFLICT DO NOTHING
+                """,
+                records
+            )
+        elif actual == 'staging_measure_units':
+            conn.executemany(
+                """
+                INSERT INTO staging_measure_units (run_id, venue_id, source_id, name, code, full_name, parent_ratio)
+                VALUES (:run_id, :venue_id, :source_id, :name, :code, :full_name, :parent_ratio)
+                ON CONFLICT DO NOTHING
+                """,
+                records
+            )
         elif actual == 'staging_shifts':
             conn.executemany(
                 """
@@ -469,6 +538,28 @@ class SqliteBackend(DbConnection):
                     (:run_id, :venue_id, :source_id, :shift_number, :opened_at, :closed_at, :status,
                      :total_cash, :total_card, :total_bonuses, :return_cash, :return_card, :return_bonuses,
                      :orders_count, :revenue)
+                ON CONFLICT DO NOTHING
+                """,
+                records
+            )
+        elif actual == 'staging_cancellations':
+            conn.executemany(
+                """
+                INSERT INTO staging_cancellations
+                    (run_id, venue_id, source_id, reason, description, employee_id, table_order_id, created_at)
+                VALUES
+                    (:run_id, :venue_id, :source_id, :reason, :description, :employee_id, :table_order_id, :created_at)
+                ON CONFLICT DO NOTHING
+                """,
+                records
+            )
+        elif actual == 'staging_concrete_providers':
+            conn.executemany(
+                """
+                INSERT INTO staging_concrete_providers
+                    (run_id, venue_id, source_id, full_name, short_name, address, egais_status)
+                VALUES
+                    (:run_id, :venue_id, :source_id, :full_name, :short_name, :address, :egais_status)
                 ON CONFLICT DO NOTHING
                 """,
                 records
@@ -487,6 +578,10 @@ class SqliteBackend(DbConnection):
             'incoming_invoices': 'staging_incoming_invoices',
             'stores': 'staging_stores',
             'shifts': 'staging_shifts',
+            'dish_categories': 'staging_dish_categories',
+            'measure_units': 'staging_measure_units',
+            'cancellations': 'staging_cancellations',
+            'concrete_providers': 'staging_concrete_providers',
         }
         return TABLE_MAP.get(name, name)
 
@@ -658,6 +753,7 @@ class SqliteBackend(DbConnection):
                 "dishes": conn.execute("SELECT COUNT(*) FROM staging_dishes").fetchone()[0],
                 "suppliers": conn.execute("SELECT COUNT(*) FROM staging_suppliers").fetchone()[0],
                 "stores": conn.execute("SELECT COUNT(*) FROM staging_stores").fetchone()[0],
+                "measure_units": conn.execute("SELECT COUNT(*) FROM staging_measure_units").fetchone()[0],
             },
             "core_counts": {
                 "products": conn.execute("SELECT COUNT(*) FROM core_products").fetchone()[0],

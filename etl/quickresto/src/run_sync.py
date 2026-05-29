@@ -146,17 +146,43 @@ async def run_sync():
                 logger.warning("Inventory fetch failed: %s", e)
                 errors.append(f"inventory: {e}")
 
-            # ── 9. Cancellations ────────────────────────────────────
+            # ── 9. Dish categories ──────────────────────────────────
             try:
-                cancellations = await client.list_cancellations()
-                if cancellations:
-                    db.insert_raw('cancellation', cancellations, run_id, venue_id)
-                    logger.info("[%s] Cancellations: %d", "cancellation", len(cancellations))
+                from sync_dish_categories import sync_dish_categories
+                n = await sync_dish_categories(client, db, venue_id, run_id)
+                total_staging += n
             except Exception as e:
-                logger.warning("Cancellations fetch failed: %s", e)
+                logger.error("Dish categories sync failed: %s", e)
+                errors.append(f"dish_categories: {e}")
+
+            # ── 10. Measure units ───────────────────────────────────
+            try:
+                from sync_measure_units import sync_measure_units
+                n = await sync_measure_units(client, db, venue_id, run_id)
+                total_staging += n
+            except Exception as e:
+                logger.error("Measure units sync failed: %s", e)
+                errors.append(f"measure_units: {e}")
+
+            # ── 11. Concrete providers ──────────────────────────────
+            try:
+                from sync_concrete_providers import sync_concrete_providers
+                n = await sync_concrete_providers(client, db, venue_id, run_id)
+                total_staging += n
+            except Exception as e:
+                logger.error("Concrete providers sync failed: %s", e)
+                errors.append(f"concrete_providers: {e}")
+
+            # ── 12. Cancellations ───────────────────────────────────
+            try:
+                from sync_cancellations import sync_cancellations
+                n = await sync_cancellations(client, db, venue_id, run_id)
+                total_staging += n
+            except Exception as e:
+                logger.error("Cancellations sync failed: %s", e)
                 errors.append(f"cancellations: {e}")
 
-            # ── 10. Shifts (revenue) ─────────────────────────────────
+            # ── 13. Shifts (revenue) ─────────────────────────────────
             try:
                 from sync_shifts import sync_shifts
                 n = await sync_shifts(client, db, venue_id, run_id)
@@ -165,7 +191,7 @@ async def run_sync():
                 logger.error("Shifts sync failed: %s", e)
                 errors.append(f"shifts: {e}")
 
-            # ── 11. Employees ───────────────────────────────────────
+            # ── 14. Employees ─────────────────────────────────────────
             try:
                 employees = await client.list_employees()
                 if employees:
