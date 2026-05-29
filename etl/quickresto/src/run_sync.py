@@ -156,14 +156,13 @@ async def run_sync():
                 logger.warning("Cancellations fetch failed: %s", e)
                 errors.append(f"cancellations: {e}")
 
-            # ── 10. Shifts ──────────────────────────────────────────
+            # ── 10. Shifts (revenue) ─────────────────────────────────
             try:
-                shifts = await client.list_shifts()
-                if shifts:
-                    db.insert_raw('shift', shifts, run_id, venue_id)
-                    logger.info("[%s] Shifts: %d", "shift", len(shifts))
+                from sync_shifts import sync_shifts
+                n = await sync_shifts(client, db, venue_id, run_id)
+                total_staging += n
             except Exception as e:
-                logger.warning("Shifts fetch failed: %s", e)
+                logger.error("Shifts sync failed: %s", e)
                 errors.append(f"shifts: {e}")
 
             # ── 11. Employees ───────────────────────────────────────

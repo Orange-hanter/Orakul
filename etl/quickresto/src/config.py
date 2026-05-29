@@ -58,10 +58,10 @@ class Config:
     DB_BACKEND: str = os.getenv('ETL_DB_BACKEND', 'sqlite').lower()
 
     # SQLite (MVP)
-    SQLITE_PATH: str = os.getenv(
+    SQLITE_PATH: str = os.path.abspath(os.path.expanduser(os.getenv(
         'ETL_SQLITE_PATH',
-        str(PROJECT_ROOT / 'etl' / 'quickresto' / 'data' / 'etl.db')
-    )
+        str(Path(__file__).resolve().parent.parent / 'data' / 'etl.db')
+    )))
 
     # PostgreSQL
     POSTGRES_DSN: str = os.getenv('ETL_POSTGRES_DSN', '')

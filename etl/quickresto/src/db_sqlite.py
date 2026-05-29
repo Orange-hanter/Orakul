@@ -155,6 +155,28 @@ CREATE TABLE IF NOT EXISTS staging_stores (
 );
 CREATE INDEX IF NOT EXISTS ix_staging_store_run ON staging_stores(run_id);
 
+CREATE TABLE IF NOT EXISTS staging_shifts (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id           TEXT NOT NULL,
+    venue_id         TEXT,
+    source_id        TEXT NOT NULL,
+    shift_number     INTEGER,
+    opened_at        TEXT,
+    closed_at        TEXT,
+    status           TEXT,
+    total_cash       REAL DEFAULT 0,
+    total_card       REAL DEFAULT 0,
+    total_bonuses    REAL DEFAULT 0,
+    return_cash      REAL DEFAULT 0,
+    return_card      REAL DEFAULT 0,
+    return_bonuses   REAL DEFAULT 0,
+    orders_count     INTEGER,
+    revenue          REAL DEFAULT 0,
+    imported_at      TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS ix_staging_shift_run ON staging_shifts(run_id);
+CREATE INDEX IF NOT EXISTS ix_staging_shift_closed ON staging_shifts(closed_at);
+
 -- ── Core ────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS core_products (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -231,6 +253,21 @@ CREATE TABLE IF NOT EXISTS core_stores (
     updated_at  TEXT DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS ix_core_store_venue ON core_stores(venue_id);
+
+CREATE TABLE IF NOT EXISTS core_revenue_entries (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    venue_id         TEXT,
+    source_id        TEXT NOT NULL,
+    revenue_date     TEXT,
+    amount           REAL DEFAULT 0,
+    currency         TEXT DEFAULT 'BYN',
+    orders_count     INTEGER,
+    source           TEXT DEFAULT 'quickresto',
+    first_seen_at    TEXT DEFAULT (datetime('now')),
+    updated_at       TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS ix_revenue_date ON core_revenue_entries(revenue_date);
+CREATE INDEX IF NOT EXISTS ix_revenue_venue ON core_revenue_entries(venue_id);
 
 -- ── Legacy (deprecation) ───────────────────────────────────────
 CREATE TABLE IF NOT EXISTS orakul_records (
@@ -421,6 +458,21 @@ class SqliteBackend(DbConnection):
                 """,
                 records
             )
+        elif actual == 'staging_shifts':
+            conn.executemany(
+                """
+                INSERT INTO staging_shifts
+                    (run_id, venue_id, source_id, shift_number, opened_at, closed_at, status,
+                     total_cash, total_card, total_bonuses, return_cash, return_card, return_bonuses,
+                     orders_count, revenue)
+                VALUES
+                    (:run_id, :venue_id, :source_id, :shift_number, :opened_at, :closed_at, :status,
+                     :total_cash, :total_card, :total_bonuses, :return_cash, :return_card, :return_bonuses,
+                     :orders_count, :revenue)
+                ON CONFLICT DO NOTHING
+                """,
+                records
+            )
         else:
             raise ValueError(f"Unknown staging table: {table_name}")
         conn.commit()
@@ -434,6 +486,7 @@ class SqliteBackend(DbConnection):
             'suppliers': 'staging_suppliers',
             'incoming_invoices': 'staging_incoming_invoices',
             'stores': 'staging_stores',
+            'shifts': 'staging_shifts',
         }
         return TABLE_MAP.get(name, name)
 
