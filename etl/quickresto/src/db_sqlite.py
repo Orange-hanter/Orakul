@@ -99,9 +99,9 @@ CREATE TABLE IF NOT EXISTS staging_dishes (
     venue_id         TEXT,
     source_id        TEXT NOT NULL,
     name             TEXT,
+    code             TEXT,
+    unit             TEXT,
     category         TEXT,
-    sell_price       REAL,
-    active           INTEGER,  -- bool
     imported_at      TEXT DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS ix_staging_dish_run ON staging_dishes(run_id);
@@ -150,7 +150,7 @@ CREATE TABLE IF NOT EXISTS staging_stores (
     venue_id         TEXT,
     source_id        TEXT NOT NULL,
     name             TEXT,
-    store_type       TEXT,
+    code             TEXT,
     imported_at      TEXT DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS ix_staging_store_run ON staging_stores(run_id);
@@ -299,7 +299,7 @@ CREATE TABLE IF NOT EXISTS core_stores (
     venue_id    TEXT,
     source_id   TEXT NOT NULL UNIQUE,
     name        TEXT,
-    store_type  TEXT,
+    code        TEXT,
     first_seen_at TEXT DEFAULT (datetime('now')),
     updated_at  TEXT DEFAULT (datetime('now'))
 );
@@ -446,6 +446,14 @@ class SqliteBackend(DbConnection):
             ).fetchone()
         return row[0] if row else 0
 
+    def has_raw_data(self, entity: str) -> bool:
+        conn = self._get_conn()
+        row = conn.execute(
+            "SELECT 1 FROM raw_imports WHERE entity=? LIMIT 1",
+            (entity,)
+        ).fetchone()
+        return row is not None
+
     # ── Staging ──────────────────────────────────────────────────
 
     def upsert_staging(self, table_name: str, records: list[dict]) -> int:
@@ -465,8 +473,8 @@ class SqliteBackend(DbConnection):
         elif actual == 'staging_dishes':
             conn.executemany(
                 """
-                INSERT INTO staging_dishes (run_id, venue_id, source_id, name, category, sell_price, active)
-                VALUES (:run_id, :venue_id, :source_id, :name, :category, :sell_price, :active)
+                INSERT INTO staging_dishes (run_id, venue_id, source_id, name, code, unit, category)
+                VALUES (:run_id, :venue_id, :source_id, :name, :code, :unit, :category)
                 ON CONFLICT DO NOTHING
                 """,
                 records
@@ -503,8 +511,8 @@ class SqliteBackend(DbConnection):
         elif actual == 'staging_stores':
             conn.executemany(
                 """
-                INSERT INTO staging_stores (run_id, venue_id, source_id, name, store_type)
-                VALUES (:run_id, :venue_id, :source_id, :name, :store_type)
+                INSERT INTO staging_stores (run_id, venue_id, source_id, name, code)
+                VALUES (:run_id, :venue_id, :source_id, :name, :code)
                 ON CONFLICT DO NOTHING
                 """,
                 records
@@ -646,10 +654,10 @@ class SqliteBackend(DbConnection):
         elif table_name == 'stores':
             conn.executemany(
                 """
-                INSERT INTO core_stores (venue_id, source_id, name, store_type, first_seen_at, updated_at)
-                VALUES (:venue_id, :source_id, :name, :store_type, datetime('now'), datetime('now'))
+                INSERT INTO core_stores (venue_id, source_id, name, code, first_seen_at, updated_at)
+                VALUES (:venue_id, :source_id, :name, :code, datetime('now'), datetime('now'))
                 ON CONFLICT(source_id) DO UPDATE SET
-                    name=excluded.name, store_type=excluded.store_type, updated_at=excluded.updated_at
+                    name=excluded.name, code=excluded.code, updated_at=excluded.updated_at
                 """,
                 records
             )

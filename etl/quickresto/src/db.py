@@ -127,6 +127,9 @@ class OrakulDB:
     def insert_raw(self, entity: str, records: list[dict], run_id: str, venue_id: str | None = None) -> int:
         return self._backend.insert_raw(entity, records, run_id, venue_id)
 
+    def has_raw_data(self, entity: str) -> bool:
+        return self._backend.has_raw_data(entity)
+
     def upsert_staging(self, table_name: str, records: list[dict]) -> int:
         return self._backend.upsert_staging(table_name, records)
 

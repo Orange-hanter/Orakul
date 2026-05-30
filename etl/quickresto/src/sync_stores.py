@@ -29,7 +29,7 @@ async def sync_stores(client: QuickRestoClient, db: OrakulDB, venue_id: str = ''
     Выгружает все Store (warehouse) из QR и пишет в raw_imports + staging_stores.
     Поддерживает инкрементальную синхронизацию через watermark (version).
     """
-    module = 'warehouse.stores.warehouse'
+    module = 'warehouse.store'
     watermark = db.get_watermark('store')
     logger.info("[sync_stores] Начало синхронизации: %s (since_version=%s)", module, watermark)
 

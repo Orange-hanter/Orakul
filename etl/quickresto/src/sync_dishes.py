@@ -24,7 +24,11 @@ async def sync_dishes(client: QuickRestoClient, db: OrakulDB, venue_id: str = ''
     watermark = db.get_watermark('dish')
     logger.info("[sync_dishes] Начало синхронизации: %s (since_version=%s)", module, watermark)
 
-    dishes = await client.list_entities(module_name=module, since_version=watermark)
+    dishes = await client.list_entities(
+        module_name=module,
+        class_name='ru.edgex.quickresto.modules.warehouse.nomenclature.dish.Dish',
+        since_version=watermark,
+    )
     if not dishes:
         logger.info("[sync_dishes] Нет новых записей для %s", module)
         return 0

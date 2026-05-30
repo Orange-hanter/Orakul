@@ -37,6 +37,11 @@ async def sync_concrete_providers(client: QuickRestoClient, db: OrakulDB, venue_
     module = 'warehouse.providers.concrete'
     class_name = 'ru.edgex.quickresto.modules.warehouse.providers.concrete.ConcreteProvider'
     watermark = db.get_watermark('concrete_provider')
+
+    if db.has_raw_data('concrete_provider') and watermark > 0:
+        logger.info("[sync_concrete_providers] Статическая сущность уже загружена (watermark=%s), пропускаем", watermark)
+        return 0
+
     logger.info("[sync_concrete_providers] Начало синхронизации: %s (since_version=%s)", module, watermark)
 
     items = await client.list_entities(

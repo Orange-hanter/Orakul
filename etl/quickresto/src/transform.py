@@ -297,13 +297,30 @@ def transform_shift(data: dict, venue_id: str) -> dict | None:
     closed_date = _parse_date(data.get("closed", ""))
     if not closed_date:
         closed_date = _parse_date(data.get("localClosedTime", ""))
+    if not closed_date:
+        closed_date = _parse_date(data.get("opened", ""))
 
-    # Выручка = наличные + карта - возвраты
-    revenue = 0.0
-    for field in ["totalCash", "totalCard", "totalBonuses"]:
-        revenue += data.get(field, 0) or 0
-    for field in ["totalReturnCash", "totalReturnCard", "totalReturnBonuses"]:
-        revenue -= data.get(field, 0) or 0
+    def _safe_float(val) -> float:
+        try:
+            return float(val) if val is not None else 0.0
+        except (TypeError, ValueError):
+            return 0.0
+
+    def _safe_int(val) -> int:
+        try:
+            return int(val) if val is not None else 0
+        except (TypeError, ValueError):
+            return 0
+
+    revenue = (
+        _safe_float(data.get("totalCash")) +
+        _safe_float(data.get("totalCard")) +
+        _safe_float(data.get("totalBonuses")) -
+        _safe_float(data.get("totalReturnCash")) -
+        _safe_float(data.get("totalReturnCard")) -
+        _safe_float(data.get("totalReturnBonuses"))
+    )
+    revenue = max(revenue, 0.0)
 
     return {
         "type": "revenue_entry",
@@ -314,11 +331,11 @@ def transform_shift(data: dict, venue_id: str) -> dict | None:
         "source": "quickresto",
         "externalId": str(qr_id),
         "meta": {
-            "ordersCount": data.get("ordersCount", 0),
-            "shiftNumber": data.get("shiftNumber", 0),
-            "totalCash": data.get("totalCash", 0),
-            "totalCard": data.get("totalCard", 0),
-            "nonFiscalTotalCash": data.get("nonFiscalTotalCash", 0),
+            "ordersCount": _safe_int(data.get("ordersCount")),
+            "shiftNumber": _safe_int(data.get("shiftNumber")),
+            "totalCash": _safe_float(data.get("totalCash")),
+            "totalCard": _safe_float(data.get("totalCard")),
+            "nonFiscalTotalCash": _safe_float(data.get("nonFiscalTotalCash")),
         },
     }
 

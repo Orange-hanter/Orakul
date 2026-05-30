@@ -19,6 +19,11 @@ async def sync_cancellations(client: QuickRestoClient, db: OrakulDB, venue_id: s
     module = 'front.cancellations'
     class_name = 'ru.edgex.quickresto.modules.front.cancellations.Cancellation'
     watermark = db.get_watermark('cancellation')
+
+    if db.has_raw_data('cancellation') and watermark > 0:
+        logger.info("[sync_cancellations] Данные уже загружены (watermark=%s), пропускаем", watermark)
+        return 0
+
     logger.info(
         "[sync_cancellations] Начало синхронизации: %s (since_version=%s)",
         module, watermark,

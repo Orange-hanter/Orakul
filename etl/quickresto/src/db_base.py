@@ -44,6 +44,11 @@ class DbConnection(ABC):
         """Count raw records."""
         ...
 
+    @abstractmethod
+    def has_raw_data(self, entity: str) -> bool:
+        """Check if any raw data exists for entity."""
+        ...
+
     # ── Staging ──────────────────────────────────────────────────
 
     @abstractmethod

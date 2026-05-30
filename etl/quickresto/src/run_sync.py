@@ -67,6 +67,7 @@ async def run_sync():
     total_staging = 0
     total_raw = 0
     errors: list[str] = []
+    failed_steps = 0
 
     start_time = time.time()
 
@@ -81,6 +82,7 @@ async def run_sync():
             except Exception as e:
                 logger.warning("Company fetch failed: %s", e)
                 errors.append(f"company: {e}")
+                failed_steps += 1
 
             # ── 2. Products ───────────────────────────────────────────
             try:
@@ -89,6 +91,7 @@ async def run_sync():
             except Exception as e:
                 logger.error("Products sync failed: %s", e)
                 errors.append(f"products: {e}")
+                failed_steps += 1
 
             # ── 3. Dishes ─────────────────────────────────────────────
             try:
@@ -97,6 +100,7 @@ async def run_sync():
             except Exception as e:
                 logger.error("Dishes sync failed: %s", e)
                 errors.append(f"dishes: {e}")
+                failed_steps += 1
 
             # ── 4. Stores ───────────────────────────────────────────
             try:
@@ -105,6 +109,7 @@ async def run_sync():
             except Exception as e:
                 logger.error("Stores sync failed: %s", e)
                 errors.append(f"stores: {e}")
+                failed_steps += 1
 
             # ── 5. Suppliers (providers) ────────────────────────────
             try:
@@ -115,6 +120,7 @@ async def run_sync():
             except Exception as e:
                 logger.warning("Suppliers fetch failed: %s", e)
                 errors.append(f"suppliers: {e}")
+                failed_steps += 1
 
             # ── 6. Incoming invoices ────────────────────────────────
             try:
@@ -125,6 +131,7 @@ async def run_sync():
             except Exception as e:
                 logger.warning("Incoming invoices fetch failed: %s", e)
                 errors.append(f"incoming_invoices: {e}")
+                failed_steps += 1
 
             # ── 7. Discard invoices ─────────────────────────────────
             try:
@@ -135,6 +142,7 @@ async def run_sync():
             except Exception as e:
                 logger.warning("Discard invoices fetch failed: %s", e)
                 errors.append(f"discard_invoices: {e}")
+                failed_steps += 1
 
             # ── 8. Inventory ────────────────────────────────────────
             try:
@@ -145,6 +153,7 @@ async def run_sync():
             except Exception as e:
                 logger.warning("Inventory fetch failed: %s", e)
                 errors.append(f"inventory: {e}")
+                failed_steps += 1
 
             # ── 9. Dish categories ──────────────────────────────────
             try:
@@ -154,6 +163,7 @@ async def run_sync():
             except Exception as e:
                 logger.error("Dish categories sync failed: %s", e)
                 errors.append(f"dish_categories: {e}")
+                failed_steps += 1
 
             # ── 10. Measure units ───────────────────────────────────
             try:
@@ -163,6 +173,7 @@ async def run_sync():
             except Exception as e:
                 logger.error("Measure units sync failed: %s", e)
                 errors.append(f"measure_units: {e}")
+                failed_steps += 1
 
             # ── 11. Concrete providers ──────────────────────────────
             try:
@@ -172,6 +183,7 @@ async def run_sync():
             except Exception as e:
                 logger.error("Concrete providers sync failed: %s", e)
                 errors.append(f"concrete_providers: {e}")
+                failed_steps += 1
 
             # ── 12. Cancellations ───────────────────────────────────
             try:
@@ -181,6 +193,7 @@ async def run_sync():
             except Exception as e:
                 logger.error("Cancellations sync failed: %s", e)
                 errors.append(f"cancellations: {e}")
+                failed_steps += 1
 
             # ── 13. Shifts (revenue) ─────────────────────────────────
             try:
@@ -190,6 +203,7 @@ async def run_sync():
             except Exception as e:
                 logger.error("Shifts sync failed: %s", e)
                 errors.append(f"shifts: {e}")
+                failed_steps += 1
 
             # ── 14. Employees ─────────────────────────────────────────
             try:
@@ -200,6 +214,7 @@ async def run_sync():
             except Exception as e:
                 logger.warning("Employees fetch failed: %s", e)
                 errors.append(f"employees: {e}")
+                failed_steps += 1
 
     except Exception as e:
         logger.error("Fatal sync error: %s", e)
@@ -219,6 +234,7 @@ async def run_sync():
     logger.info("║  Run id:         %s", run_id)
     logger.info("║  Duration:       %.1f s", duration)
     logger.info("║  Staging records: %d", total_staging)
+    logger.info("║  Failed steps:    %d", failed_steps)
     logger.info("║  Errors:         %d", len(errors))
     logger.info("╚═══════════════════════════════════════╝")
 
